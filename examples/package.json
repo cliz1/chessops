@@ -1,0 +1,17 @@
+{
+  "name": "chessops-examples",
+  "private": true,
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "dependencies": {
+    "chessops": "file:.."
+  },
+  "devDependencies": {
+    "esbuild": "^0.20",
+    "typescript": "^5"
+  },
+  "scripts": {
+    "prepare": "esbuild src/read-pgn.ts --minify --bundle --sourcemap --outdir=dist --platform=node --format=esm",
+    "read-pgn": "time node --enable-source-maps --experimental-vm-modules dist/read-pgn.js"
+  }
+}
