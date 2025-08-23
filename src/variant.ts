@@ -5,7 +5,6 @@ import {
   Castles,
   castlingSide,
   Chess,
-  Context,
   equalsIgnoreMoves,
   IllegalSetup,
   isImpossibleCheck,
@@ -19,6 +18,8 @@ import { Material, MaterialSide, RemainingChecks, Setup } from './setup.js';
 import { SquareSet } from './squareSet.js';
 import { Color, COLORS, Outcome, Piece, Rules, Square } from './types.js';
 import { defined, opposite } from './util.js';
+import type { Context } from './chess.ts'; 
+
 
 export {
   Castles,

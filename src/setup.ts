@@ -9,6 +9,11 @@ export class MaterialSide implements ByRole<number> {
   rook: number;
   queen: number;
   king: number;
+  knook: number;
+  knishop: number;
+  amazon: number;
+  peasant: number;
+  painter: number;
 
   private constructor() {}
 

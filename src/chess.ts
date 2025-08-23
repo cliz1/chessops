@@ -9,6 +9,11 @@ import {
   queenAttacks,
   ray,
   rookAttacks,
+  knookAttacks,
+  knishopAttacks,
+  amazonAttacks,
+  peasantAttacks,
+  painterAttacks
 } from './attacks.js';
 import { Board, boardEquals } from './board.js';
 import { Material, RemainingChecks, Setup } from './setup.js';
@@ -47,7 +52,12 @@ const attacksTo = (square: Square, attacker: Color, board: Board, occupied: Squa
       .union(bishopAttacks(square, occupied).intersect(board.bishopsAndQueens()))
       .union(knightAttacks(square).intersect(board.knight))
       .union(kingAttacks(square).intersect(board.king))
-      .union(pawnAttacks(opposite(attacker), square).intersect(board.pawn)),
+      .union(pawnAttacks(opposite(attacker), square).intersect(board.pawn))
+      .union(knookAttacks(square, occupied).intersect(board.knook))
+      .union(knishopAttacks(square, occupied).intersect(board.knishop))
+      .union(amazonAttacks(square, occupied).intersect(board.amazon))
+      .union(peasantAttacks(square).intersect(board.peasant))
+      .union(painterAttacks(opposite(attacker), square).intersect(board.painter)),
   );
 
 export class Castles {
@@ -113,12 +123,12 @@ export class Castles {
 
   static fromSetup(setup: Setup): Castles {
     const castles = Castles.empty();
-    const rooks = setup.castlingRights.intersect(setup.board.rook);
+    const castlers = setup.castlingRights.intersect(setup.board.rook.union(setup.board.knook));
     for (const color of COLORS) {
       const backrank = SquareSet.backrank(color);
       const king = setup.board.kingOf(color);
       if (!defined(king) || !backrank.has(king)) continue;
-      const side = rooks.intersect(setup.board[color]).intersect(backrank);
+      const side = castlers.intersect(setup.board[color]).intersect(backrank);
       const aSide = side.first();
       if (defined(aSide) && aSide < king) castles.add(color, 'a', king, aSide);
       const hSide = side.last();
@@ -216,9 +226,20 @@ export abstract class Position {
     if (!defined(king)) {
       return { king, blockers: SquareSet.empty(), checkers: SquareSet.empty(), variantEnd, mustCapture: false };
     }
+    // Combine piece sets
+    const rookLikeSliders = this.board.rooksAndQueens()
+      .union(this.board.knook)      // knooks are rook-like
+      .union(this.board.amazon); // amazons are queen-like
+
+    const bishopLikeSliders = this.board.bishopsAndQueens()
+      .union(this.board.knishop)  // knishops also have bishop moves
+      .union(this.board.amazon); // amazons are queen-like
+
     const snipers = rookAttacks(king, SquareSet.empty())
-      .intersect(this.board.rooksAndQueens())
-      .union(bishopAttacks(king, SquareSet.empty()).intersect(this.board.bishopsAndQueens()))
+      .intersect(rookLikeSliders)
+      .union(
+        bishopAttacks(king, SquareSet.empty()).intersect(bishopLikeSliders)
+      )
       .intersect(this.board[opposite(this.turn)]);
     let blockers = SquareSet.empty();
     for (const sniper of snipers) {
@@ -278,7 +299,7 @@ export abstract class Position {
     if (!piece || piece.color !== this.turn) return SquareSet.empty();
 
     let pseudo, legal;
-    if (piece.role === 'pawn') {
+    if (piece.role === 'pawn' || piece.role === 'painter') {
       pseudo = pawnAttacks(this.turn, square).intersect(this.board[opposite(this.turn)]);
       const delta = this.turn === 'white' ? 8 : -8;
       const step = square + delta;
@@ -297,6 +318,10 @@ export abstract class Position {
     else if (piece.role === 'knight') pseudo = knightAttacks(square);
     else if (piece.role === 'rook') pseudo = rookAttacks(square, this.board.occupied);
     else if (piece.role === 'queen') pseudo = queenAttacks(square, this.board.occupied);
+    else if (piece.role === 'knook') pseudo = knightAttacks(square).xor(rookAttacks(square, this.board.occupied));
+    else if (piece.role === 'knishop') pseudo = bishopAttacks(square, this.board.occupied).xor(knightAttacks(square));
+    else if (piece.role === 'amazon') pseudo = queenAttacks(square, this.board.occupied).xor(knightAttacks(square));
+    else if (piece.role === 'peasant') pseudo = peasantAttacks(square);
     else pseudo = kingAttacks(square);
 
     pseudo = pseudo.diff(this.board[this.turn]);
@@ -316,7 +341,29 @@ export abstract class Position {
         pseudo = pseudo.intersect(between(checker, ctx.king).with(checker));
       }
 
-      if (ctx.blockers.has(square)) pseudo = pseudo.intersect(ray(square, ctx.king));
+      if (ctx.blockers.has(square)) {
+  if (piece.role === 'painter') {
+    // Allow painter to "capture" (paint) even when pinned, but still restrict non-capture moves.
+    // Determine capture-like squares: opponent-occupied squares + epSquare (if applicable)
+    let captureSquares = this.board[opposite(this.turn)];
+    // If epSquare is defined and painter can capture ep, include it in captureSquares.
+    if (defined(this.epSquare) && canCaptureEp(this, square, ctx)) {
+      captureSquares = captureSquares.with(this.epSquare);
+    }
+
+    // Keep capture destinations even if pinned
+    const capturesOnly = pseudo.intersect(captureSquares);
+
+    // Restrict non-capture pseudo moves to the ray (i.e. normal pin restriction)
+    const nonCapture = pseudo.diff(captureSquares).intersect(ray(square, ctx.king));
+
+    // Union captures (allowed even when pinned) with restricted non-capture moves
+    pseudo = capturesOnly.union(nonCapture);
+  } else {
+    // default behavior for all other piece types
+    pseudo = pseudo.intersect(ray(square, ctx.king));
+  }
+}
     }
 
     if (legal) pseudo = pseudo.union(legal);
@@ -436,7 +483,6 @@ export abstract class Position {
     this.halfmoves += 1;
     if (turn === 'black') this.fullmoves += 1;
     this.turn = opposite(turn);
-
     if (isDrop(move)) {
       this.board.set(move.to, { role: move.role, color: turn });
       if (this.pockets) this.pockets[turn][move.role]--;
@@ -458,7 +504,59 @@ export abstract class Position {
         if (move.promotion) {
           piece.role = move.promotion;
           piece.promoted = !!this.pockets;
-        }
+      }
+    } else if (piece.role === 'painter'){
+  // Reset halfmove clock (like a capture)
+  this.halfmoves = 0;
+
+  // Handle painter's special en passant
+  if (move.to === epSquare) {
+    const wouldBeCapturedSquare = move.to + (turn === 'white' ? -8 : 8);
+    const target = this.board.get(wouldBeCapturedSquare);
+
+    if (defined(target) && target.role === 'pawn' && target.color !== piece.color) {
+      // Save undo info (original target state)
+      const prevTarget = { role: target.role, color: target.color, promoted: target.promoted };
+
+      // Paint the pawn (change its color to painter's color)
+      const paintedPawn = { role: target.role, color: piece.color, promoted: target.promoted };
+      this.board.set(wouldBeCapturedSquare, paintedPawn);
+
+      // Painter stays on its original square (do NOT move the painter)
+      this.board.set(move.from, piece);
+
+      // IMPORTANT: Clear epSquare after the move
+      this.epSquare = undefined;
+
+      // TODO: record undo info here (prevTarget, from, to)
+      return;
+    }
+  }
+
+  // Normal painter behavior (painting on destination if enemy piece exists)
+  const target = this.board.get(move.to);
+  if (defined(target) && target.color !== piece.color) {
+    const prevTarget = { role: target.role, color: target.color, promoted: target.promoted };
+    const paintedPiece = { role: target.role, color: piece.color, promoted: target.promoted };
+    this.board.set(move.to, paintedPiece);
+
+    // Painter does NOT move
+    this.board.set(move.from, piece);
+
+    if (prevTarget.role === 'rook') {
+      this.castles.discardRook(move.to);
+    }
+
+    return;
+  } else {
+    // No piece to paint: painter moves normally (like a pawn)
+    if (move.promotion) {
+      piece.role = move.promotion;
+      piece.promoted = !!this.pockets;
+    }
+    const capture = this.board.set(move.to, piece) || undefined;
+    if (capture) this.playCaptureAt(move.to, capture);
+  }
       } else if (piece.role === 'rook') {
         this.castles.discardRook(move.from);
       } else if (piece.role === 'king') {
@@ -549,6 +647,8 @@ const castlingDest = (pos: Position, side: CastlingSide, ctx: Context): SquareSe
   if (!defined(ctx.king) || ctx.checkers.nonEmpty()) return SquareSet.empty();
   const rook = pos.castles.rook[pos.turn][side];
   if (!defined(rook)) return SquareSet.empty();
+  const rookPiece = pos.board.get(rook);
+  if (!rookPiece || (rookPiece.role !== 'rook' && rookPiece.role !== 'knook')) return SquareSet.empty();
   if (pos.castles.path[pos.turn][side].intersects(pos.board.occupied)) return SquareSet.empty();
 
   const kingTo = kingCastlesTo(pos.turn, side);
@@ -614,7 +714,7 @@ export const castlingSide = (pos: Position, move: Move): CastlingSide | undefine
 export const normalizeMove = (pos: Position, move: Move): Move => {
   const side = castlingSide(pos, move);
   if (!side) return move;
-  const rookFrom = pos.castles.rook[pos.turn][side];
+  const rookFrom = pos.castles.rook[pos.turn][side]; //bookmark
   return {
     from: (move as NormalMove).from,
     to: defined(rookFrom) ? rookFrom : move.to,

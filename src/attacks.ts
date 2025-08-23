@@ -114,6 +114,24 @@ export const rookAttacks = (square: Square, occupied: SquareSet): SquareSet =>
 export const queenAttacks = (square: Square, occupied: SquareSet): SquareSet =>
   bishopAttacks(square, occupied).xor(rookAttacks(square, occupied));
 
+/** Gets squares attacked or defended by a knook  */
+export const knookAttacks = (square: Square, occupied: SquareSet): SquareSet =>
+  knightAttacks(square).xor(rookAttacks(square, occupied));
+
+/** Gets squares attacked or defended by a knishop */
+export const knishopAttacks = (square: Square, occupied: SquareSet): SquareSet =>
+  bishopAttacks(square, occupied).xor(knightAttacks(square));
+
+/** Gets squares attacked or defended by an amazon */
+export const amazonAttacks = (square: Square, occupied: SquareSet): SquareSet =>
+  queenAttacks(square, occupied).xor(knightAttacks(square));
+
+/** Gets squares attacked or defended by a peasant */
+export const peasantAttacks = (square: Square): SquareSet => KING_ATTACKS[square];
+
+/** Gets squares attacked or defended by a painter */
+export const painterAttacks = (color: Color, square: Square): SquareSet => PAWN_ATTACKS[color][square];
+
 /**
  * Gets squares attacked or defended by a `piece` on `square`, given
  * `occupied` squares.
@@ -132,6 +150,16 @@ export const attacks = (piece: Piece, square: Square, occupied: SquareSet): Squa
       return queenAttacks(square, occupied);
     case 'king':
       return kingAttacks(square);
+    case 'knook':
+      return knightAttacks(square).xor(rookAttacks(square, occupied));
+    case 'knishop':
+      return bishopAttacks(square, occupied).xor(knightAttacks(square));
+    case 'amazon':
+      return queenAttacks(square, occupied).xor(knightAttacks(square));
+    case 'peasant':
+      return peasantAttacks(square);
+    case 'painter':
+      return painterAttacks(piece.color, square);
   }
 };
 
