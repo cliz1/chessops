@@ -14,6 +14,7 @@ export class MaterialSide implements ByRole<number> {
   amazon: number;
   peasant: number;
   painter: number;
+  snare: number;
 
   private constructor() {}
 

@@ -13,7 +13,8 @@ import {
   knishopAttacks,
   amazonAttacks,
   peasantAttacks,
-  painterAttacks
+  painterAttacks,
+  snareAttacks,
 } from './attacks.js';
 import { Board, boardEquals } from './board.js';
 import { Material, RemainingChecks, Setup } from './setup.js';
@@ -33,7 +34,7 @@ import {
   Rules,
   Square,
 } from './types.js';
-import { defined, kingCastlesTo, opposite, rookCastlesTo, squareRank } from './util.js';
+import { defined, kingCastlesTo, opposite, rookCastlesTo, squareRank, squareFile } from './util.js';
 
 export enum IllegalSetup {
   Empty = 'ERR_EMPTY',
@@ -298,14 +299,33 @@ export abstract class Position {
     const piece = this.board.get(square);
     if (!piece || piece.color !== this.turn) return SquareSet.empty();
 
-    let pseudo, legal;
+    // --- Snaring restriction ---
+    let allSnareZones = SquareSet.empty();
+    for (const [sq, bPiece] of this.board) {
+      if (bPiece.role === 'snare') {
+        const zone = snareZone(this as unknown as Position, sq, bPiece.color);
+        for (const z of zone) {
+          const target = this.board.get(z);
+          if (defined(target) && target.color !== bPiece.color) {
+            allSnareZones = allSnareZones.with(z);
+          }
+        }
+      }
+    }
+    if (piece.role !== 'snare' && allSnareZones.has(square)) {
+      return SquareSet.empty();
+    }
+
+    let pseudo: SquareSet;
+    let legal: SquareSet | undefined;
+
     if (piece.role === 'pawn' || piece.role === 'painter') {
       pseudo = pawnAttacks(this.turn, square).intersect(this.board[opposite(this.turn)]);
       const delta = this.turn === 'white' ? 8 : -8;
       const step = square + delta;
       if (0 <= step && step < 64 && !this.board.occupied.has(step)) {
         pseudo = pseudo.with(step);
-        const canDoubleStep = this.turn === 'white' ? square < 16 : square >= 64 - 16;
+        const canDoubleStep = this.turn === 'white' ? square < 16 : square >= 48;
         const doubleStep = step + delta;
         if (canDoubleStep && !this.board.occupied.has(doubleStep)) {
           pseudo = pseudo.with(doubleStep);
@@ -322,6 +342,11 @@ export abstract class Position {
     else if (piece.role === 'knishop') pseudo = bishopAttacks(square, this.board.occupied).xor(knightAttacks(square));
     else if (piece.role === 'amazon') pseudo = queenAttacks(square, this.board.occupied).xor(knightAttacks(square));
     else if (piece.role === 'peasant') pseudo = peasantAttacks(square);
+    else if (piece.role === 'snare') {
+      pseudo = snareAttacks(piece.color, square);
+      // Snare cannot capture
+      pseudo = pseudo.diff(this.board.white).diff(this.board.black);
+    }
     else pseudo = kingAttacks(square);
 
     pseudo = pseudo.diff(this.board[this.turn]);
@@ -330,7 +355,8 @@ export abstract class Position {
       if (piece.role === 'king') {
         const occ = this.board.occupied.without(square);
         for (const to of pseudo) {
-          if (this.kingAttackers(to, opposite(this.turn), occ).nonEmpty()) pseudo = pseudo.without(to);
+          if (this.kingAttackers(to, opposite(this.turn), occ).nonEmpty())
+            pseudo = pseudo.without(to);
         }
         return pseudo.union(castlingDest(this, 'a', ctx)).union(castlingDest(this, 'h', ctx));
       }
@@ -342,28 +368,19 @@ export abstract class Position {
       }
 
       if (ctx.blockers.has(square)) {
-  if (piece.role === 'painter') {
-    // Allow painter to "capture" (paint) even when pinned, but still restrict non-capture moves.
-    // Determine capture-like squares: opponent-occupied squares + epSquare (if applicable)
-    let captureSquares = this.board[opposite(this.turn)];
-    // If epSquare is defined and painter can capture ep, include it in captureSquares.
-    if (defined(this.epSquare) && canCaptureEp(this, square, ctx)) {
-      captureSquares = captureSquares.with(this.epSquare);
-    }
-
-    // Keep capture destinations even if pinned
-    const capturesOnly = pseudo.intersect(captureSquares);
-
-    // Restrict non-capture pseudo moves to the ray (i.e. normal pin restriction)
-    const nonCapture = pseudo.diff(captureSquares).intersect(ray(square, ctx.king));
-
-    // Union captures (allowed even when pinned) with restricted non-capture moves
-    pseudo = capturesOnly.union(nonCapture);
-  } else {
-    // default behavior for all other piece types
-    pseudo = pseudo.intersect(ray(square, ctx.king));
-  }
-}
+        if (piece.role === 'painter') {
+          // painter pin exception logic
+          let captureSquares = this.board[opposite(this.turn)];
+          if (defined(this.epSquare) && canCaptureEp(this, square, ctx)) {
+            captureSquares = captureSquares.with(this.epSquare);
+          }
+          const capturesOnly = pseudo.intersect(captureSquares);
+          const nonCapture = pseudo.diff(captureSquares).intersect(ray(square, ctx.king));
+          pseudo = capturesOnly.union(nonCapture);
+        } else {
+          pseudo = pseudo.intersect(ray(square, ctx.king));
+        }
+      }
     }
 
     if (legal) pseudo = pseudo.union(legal);
@@ -424,12 +441,12 @@ export abstract class Position {
   isLegal(move: Move, ctx?: Context): boolean {
     if (isDrop(move)) {
       if (!this.pockets || this.pockets[this.turn][move.role] <= 0) return false;
-      if (move.role === 'pawn' && SquareSet.backranks().has(move.to)) return false;
+      if ((move.role === 'pawn') && SquareSet.backranks().has(move.to)) return false;
       return this.dropDests(ctx).has(move.to);
     } else {
       if (move.promotion === 'pawn') return false;
       if (move.promotion === 'king' && this.rules !== 'antichess') return false;
-      if (!!move.promotion !== (this.board.pawn.has(move.from) && SquareSet.backranks().has(move.to))) return false;
+      if (!!move.promotion !== ((this.board.pawn.has(move.from) || this.board.painter.has(move.from)) && SquareSet.backranks().has(move.to))) return false;
       const dests = this.dests(move.from, ctx);
       return dests.has(move.to) || dests.has(normalizeMove(this, move).to);
     }
@@ -532,7 +549,6 @@ export abstract class Position {
       return;
     }
   }
-
   // Normal painter behavior (painting on destination if enemy piece exists)
   const target = this.board.get(move.to);
   if (defined(target) && target.color !== piece.color) {
@@ -570,6 +586,28 @@ export abstract class Position {
         }
         this.castles.discardColor(turn);
       }
+
+      else if (piece.role === 'snare') {
+            // More robust occupancy check — use get() to detect any piece at `move.to`.
+      const destBefore = this.board.get(move.to);
+      if (defined(destBefore)) {
+        // Destination occupied -> snare cannot move there
+        return;
+      }
+
+      // Move the snare piece (do not call playCaptureAt and do NOT treat as capture).
+      // Use board.set (which may return a captured piece if any) but we've already checked dest is empty.
+      this.board.set(move.to, piece);
+      this.board.take(move.from);
+
+      // Defensive: If your Move objects carry a 'capture' flag, ensure it's false here.
+      // Depending on your type system this may require casting to any. This avoids a stale move.capture
+      // being used by the PGN writer or UI after play().
+      if ((move as any).capture) (move as any).capture = false;
+
+      // Return early to avoid generic capture-handlers after this block.
+      return;
+    }
 
       if (!castling) {
         const capture = this.board.set(move.to, piece) || epCapture;
@@ -665,33 +703,74 @@ const castlingDest = (pos: Position, side: CastlingSide, ctx: Context): SquareSe
   return SquareSet.fromSquare(rook);
 };
 
+const snareZone = (pos: Position, square: Square, color: Color): SquareSet => {
+  const front = color === 'white' ? square + 8 : square - 8;
+  const left = square - 1;
+  const right = square + 1;
+  let zone = SquareSet.empty();
+  if (0 <= front && front < 64) zone = zone.with(front);
+  if (squareFile(left) === squareFile(square) - 1) zone = zone.with(left);
+  if (squareFile(right) === squareFile(square) + 1) zone = zone.with(right);
+  return zone;
+};
+
+
+
 export const pseudoDests = (pos: Position, square: Square, ctx: Context): SquareSet => {
   if (ctx.variantEnd) return SquareSet.empty();
   const piece = pos.board.get(square);
   if (!piece || piece.color !== pos.turn) return SquareSet.empty();
 
-  let pseudo = attacks(piece, square, pos.board.occupied);
+  // --- Snaring restriction ---
+  let allSnareZones = SquareSet.empty();
+  for (const [sq, bPiece] of pos.board) {
+    if (bPiece.role === 'snare') {
+      const zone = snareZone(pos, sq, bPiece.color);
+      for (const z of zone) {
+        const target = pos.board.get(z);
+        if (defined(target) && target.color !== bPiece.color) {
+          allSnareZones = allSnareZones.with(z);
+        }
+      }
+    }
+  }
+  if (piece.role !== 'snare' && allSnareZones.has(square)) {
+    return SquareSet.empty();
+  }
+
+  // --- Normal pseudo move generation ---
+  let pseudo: SquareSet;
+
   if (piece.role === 'pawn') {
     let captureTargets = pos.board[opposite(pos.turn)];
     if (defined(pos.epSquare)) captureTargets = captureTargets.with(pos.epSquare);
-    pseudo = pseudo.intersect(captureTargets);
+    pseudo = pawnAttacks(pos.turn, square).intersect(captureTargets);
     const delta = pos.turn === 'white' ? 8 : -8;
     const step = square + delta;
     if (0 <= step && step < 64 && !pos.board.occupied.has(step)) {
       pseudo = pseudo.with(step);
-      const canDoubleStep = pos.turn === 'white' ? square < 16 : square >= 64 - 16;
+      const canDoubleStep = pos.turn === 'white' ? square < 16 : square >= 48;
       const doubleStep = step + delta;
       if (canDoubleStep && !pos.board.occupied.has(doubleStep)) {
         pseudo = pseudo.with(doubleStep);
       }
     }
-    return pseudo;
+  } else if (piece.role === 'snare') {
+    pseudo = snareAttacks(piece.color, square);
+    // Snare cannot capture → remove all occupied squares
+    pseudo = pseudo.diff(pos.board.white).diff(pos.board.black);
   } else {
+    pseudo = attacks(piece, square, pos.board.occupied);
     pseudo = pseudo.diff(pos.board[pos.turn]);
   }
-  if (square === ctx.king) return pseudo.union(castlingDest(pos, 'a', ctx)).union(castlingDest(pos, 'h', ctx));
-  else return pseudo;
+
+  if (square === ctx.king) {
+    return pseudo.union(castlingDest(pos, 'a', ctx)).union(castlingDest(pos, 'h', ctx));
+  } else {
+    return pseudo;
+  }
 };
+
 
 export const equalsIgnoreMoves = (left: Position, right: Position): boolean =>
   left.rules === right.rules

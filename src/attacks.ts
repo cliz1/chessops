@@ -40,6 +40,28 @@ const PAWN_ATTACKS = {
   black: tabulate(sq => computeRange(sq, [-7, -9])),
 };
 
+// helper: single-step offsets that also avoid file-wrap issues
+function singleStepTargets(sq: Square, deltas: number[]): SquareSet {
+  let set = SquareSet.empty();
+  for (const d of deltas) {
+    const to = sq + d;
+    if (0 <= to && to < 64) {
+      // ensure we didn't wrap files when applying +/-1
+      const fileDelta = Math.abs(squareFile(to) - squareFile(sq));
+      if (fileDelta <= 1) set = set.with(to);
+    }
+  }
+  return set;
+}
+
+const SNARE_ATTACKS = {
+  // white snare "forward" is +8; left/right are +7 and +9 (single step).
+  white: tabulate(sq => singleStepTargets(sq, [8, 7, 9])),
+  // black snare "forward" is -8; left/right -7 and -9.
+  black: tabulate(sq => singleStepTargets(sq, [-8, -9, -7])),
+};
+
+
 /**
  * Gets squares attacked or defended by a king on `square`.
  */
@@ -132,6 +154,9 @@ export const peasantAttacks = (square: Square): SquareSet => KING_ATTACKS[square
 /** Gets squares attacked or defended by a painter */
 export const painterAttacks = (color: Color, square: Square): SquareSet => PAWN_ATTACKS[color][square];
 
+/** Gets squares attacked or defended by a snare */
+export const snareAttacks = (color: Color, square: Square): SquareSet => SNARE_ATTACKS[color][square];
+
 /**
  * Gets squares attacked or defended by a `piece` on `square`, given
  * `occupied` squares.
@@ -160,6 +185,8 @@ export const attacks = (piece: Piece, square: Square, occupied: SquareSet): Squa
       return peasantAttacks(square);
     case 'painter':
       return painterAttacks(piece.color, square);
+    case 'snare':
+      return snareAttacks(piece.color, square);
   }
 };
 

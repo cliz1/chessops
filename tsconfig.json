@@ -1,19 +1,22 @@
 {
   "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist/esm",
     "strict": true,
     "strictPropertyInitialization": false,
     "noEmitOnError": true,
     "noImplicitAny": true,
     "noImplicitReturns": true,
     "noImplicitThis": true,
-    "moduleResolution": "node",
-    "target": "ES2018",
     "lib": ["ES2018"],
     "module": "esnext",
+    "target": "es2019",
+    "moduleResolution": "node",
     "esModuleInterop": true,
-    "outDir": "dist/esm",
-    "declaration": true,
-    "sourceMap": true
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "emitDeclarationOnly": false
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts", "node_modules"]
 }
