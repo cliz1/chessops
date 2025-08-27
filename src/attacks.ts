@@ -61,6 +61,30 @@ const SNARE_ATTACKS = {
   black: tabulate(sq => singleStepTargets(sq, [-8, -9, -7])),
 };
 
+const ORTHOGONAL_DELTAS = [8, -8, 1, -1];
+
+const WIZARD_ATTACKS = tabulate(sq => {
+  // Start with empty
+  let s = SquareSet.empty();
+
+  // For each orthogonal direction, add 1-step and (if legal) 2-step
+  for (const d of ORTHOGONAL_DELTAS) {
+    // first step(s) from sq in direction d
+    const firstStepSet = singleStepTargets(sq, [d]);
+    for (const first of firstStepSet) {
+      s = s.with(first);
+
+      // second step: singleStepTargets applied to first in the same direction
+      const secondStepSet = singleStepTargets(first, [d]);
+      for (const second of secondStepSet) {
+        s = s.with(second);
+      }
+    }
+  }
+
+  return s;
+});
+
 
 /**
  * Gets squares attacked or defended by a king on `square`.
@@ -157,6 +181,8 @@ export const painterAttacks = (color: Color, square: Square): SquareSet => PAWN_
 /** Gets squares attacked or defended by a snare */
 export const snareAttacks = (color: Color, square: Square): SquareSet => SNARE_ATTACKS[color][square];
 
+export const wizardAttacks = (square: Square): SquareSet => WIZARD_ATTACKS[square];
+
 /**
  * Gets squares attacked or defended by a `piece` on `square`, given
  * `occupied` squares.
@@ -187,6 +213,8 @@ export const attacks = (piece: Piece, square: Square, occupied: SquareSet): Squa
       return painterAttacks(piece.color, square);
     case 'snare':
       return snareAttacks(piece.color, square);
+    case 'wizard':
+      return wizardAttacks(square);
   }
 };
 

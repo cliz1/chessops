@@ -15,6 +15,7 @@ import {
   peasantAttacks,
   painterAttacks,
   snareAttacks,
+  wizardAttacks
 } from './attacks.js';
 import { Board, boardEquals } from './board.js';
 import { Material, RemainingChecks, Setup } from './setup.js';
@@ -58,7 +59,8 @@ const attacksTo = (square: Square, attacker: Color, board: Board, occupied: Squa
       .union(knishopAttacks(square, occupied).intersect(board.knishop))
       .union(amazonAttacks(square, occupied).intersect(board.amazon))
       .union(peasantAttacks(square).intersect(board.peasant))
-      .union(painterAttacks(opposite(attacker), square).intersect(board.painter)),
+      .union(painterAttacks(opposite(attacker), square).intersect(board.painter))
+      .union(wizardAttacks(square).intersect(board.wizard))
   );
 
 export class Castles {
@@ -347,9 +349,14 @@ export abstract class Position {
       // Snare cannot capture
       pseudo = pseudo.diff(this.board.white).diff(this.board.black);
     }
+    else if (piece.role === 'wizard'){
+      pseudo = wizardAttacks(square);
+    }
     else pseudo = kingAttacks(square);
-
-    pseudo = pseudo.diff(this.board[this.turn]);
+  
+    if (piece.role !== 'wizard'){
+      pseudo = pseudo.diff(this.board[this.turn]);
+    }
 
     if (defined(ctx.king)) {
       if (piece.role === 'king') {
@@ -361,12 +368,24 @@ export abstract class Position {
         return pseudo.union(castlingDest(this, 'a', ctx)).union(castlingDest(this, 'h', ctx));
       }
 
+      // In check
       if (ctx.checkers.nonEmpty()) {
-        const checker = ctx.checkers.singleSquare();
-        if (!defined(checker)) return SquareSet.empty();
-        pseudo = pseudo.intersect(between(checker, ctx.king).with(checker));
+        if (piece.role === 'wizard'){
+          // allow wizard destinations that after simulation leave king safe
+          let allowed = SquareSet.empty();
+          for (const to of pseudo) {
+            if (this.simulateWizardMoveIsLegal(square, to, ctx)) allowed = allowed.with(to);
+          }
+          pseudo = allowed;
+        }
+        else{
+          const checker = ctx.checkers.singleSquare();
+          if (!defined(checker)) return SquareSet.empty();
+          pseudo = pseudo.intersect(between(checker, ctx.king).with(checker));
+        }
       }
 
+      // Pinned
       if (ctx.blockers.has(square)) {
         if (piece.role === 'painter') {
           // painter pin exception logic
@@ -377,6 +396,13 @@ export abstract class Position {
           const capturesOnly = pseudo.intersect(captureSquares);
           const nonCapture = pseudo.diff(captureSquares).intersect(ray(square, ctx.king));
           pseudo = capturesOnly.union(nonCapture);
+        } else if (piece.role === 'wizard'){
+          // wizard pin exception logic
+          let allowed = SquareSet.empty();
+          for (const to of pseudo) {
+            if (this.simulateWizardMoveIsLegal(square, to, ctx)) allowed = allowed.with(to);
+          }
+          pseudo = allowed;
         } else {
           pseudo = pseudo.intersect(ray(square, ctx.king));
         }
@@ -438,19 +464,37 @@ export abstract class Position {
     return this.dropDests(ctx).nonEmpty();
   }
 
-  isLegal(move: Move, ctx?: Context): boolean {
-    if (isDrop(move)) {
-      if (!this.pockets || this.pockets[this.turn][move.role] <= 0) return false;
-      if ((move.role === 'pawn') && SquareSet.backranks().has(move.to)) return false;
-      return this.dropDests(ctx).has(move.to);
+isLegal(move: Move, ctx?: Context): boolean {
+  if (isDrop(move)) {
+    if (!this.pockets || this.pockets[this.turn][move.role] <= 0) return false;
+    if ((move.role === 'pawn') && SquareSet.backranks().has(move.to)) return false;
+    return this.dropDests(ctx).has(move.to);
+  } else {
+    // invalid promotion hints
+    if (move.promotion === 'pawn') return false;
+    if (move.promotion === 'king' && this.rules !== 'antichess') return false;
+
+    // Helper info about the from/to squares and board pieces
+    const targetPiece = this.board.get(move.to); // Piece | undefined
+    const fromIsPawnLike = this.board.pawn.has(move.from) || (this.board.painter && this.board.painter.has(move.from));
+    const fromIsWizard = this.board.wizard && this.board.wizard.has(move.from);
+
+    let willRequirePromotion = false;
+
+    if (fromIsPawnLike) {
+      // a pawn/painter moving to the backrank => promotion required
+      willRequirePromotion = SquareSet.backranks().has(move.to);
+    } else if (fromIsWizard && targetPiece && targetPiece.role === 'pawn' && targetPiece.color === this.turn) {
+      willRequirePromotion = SquareSet.backranks().has(move.from);
     } else {
-      if (move.promotion === 'pawn') return false;
-      if (move.promotion === 'king' && this.rules !== 'antichess') return false;
-      if (!!move.promotion !== ((this.board.pawn.has(move.from) || this.board.painter.has(move.from)) && SquareSet.backranks().has(move.to))) return false;
-      const dests = this.dests(move.from, ctx);
-      return dests.has(move.to) || dests.has(normalizeMove(this, move).to);
+      willRequirePromotion = false;
     }
+    if (!!move.promotion !== willRequirePromotion) return false;
+    const dests = this.dests(move.from, ctx);
+    return dests.has(move.to) || dests.has(normalizeMove(this, move).to);
   }
+}
+
 
   isCheck(): boolean {
     const king = this.board.kingOf(this.turn);
@@ -523,102 +567,185 @@ export abstract class Position {
           piece.promoted = !!this.pockets;
       }
     } else if (piece.role === 'painter'){
-  // Reset halfmove clock (like a capture)
-  this.halfmoves = 0;
+      // Reset halfmove clock (like a capture)
+      this.halfmoves = 0;
 
-  // Handle painter's special en passant
-  if (move.to === epSquare) {
-    const wouldBeCapturedSquare = move.to + (turn === 'white' ? -8 : 8);
-    const target = this.board.get(wouldBeCapturedSquare);
+      // painter's special en passant
+      if (move.to === epSquare) {
+        const wouldBeCapturedSquare = move.to + (turn === 'white' ? -8 : 8);
+        const target = this.board.get(wouldBeCapturedSquare);
 
-    if (defined(target) && target.role === 'pawn' && target.color !== piece.color) {
-      // Save undo info (original target state)
-      const prevTarget = { role: target.role, color: target.color, promoted: target.promoted };
+        if (defined(target) && target.role === 'pawn' && target.color !== piece.color) {
+          // Save undo info (original target state)
+          const prevTarget = { role: target.role, color: target.color, promoted: target.promoted };
 
-      // Paint the pawn (change its color to painter's color)
-      const paintedPawn = { role: target.role, color: piece.color, promoted: target.promoted };
-      this.board.set(wouldBeCapturedSquare, paintedPawn);
+          // Paint the pawn
+          const paintedPawn = { role: target.role, color: piece.color, promoted: target.promoted };
+          this.board.set(wouldBeCapturedSquare, paintedPawn);
 
-      // Painter stays on its original square (do NOT move the painter)
-      this.board.set(move.from, piece);
+          // Painter stays on its original square 
+          this.board.set(move.from, piece);
 
-      // IMPORTANT: Clear epSquare after the move
-      this.epSquare = undefined;
+          this.epSquare = undefined;
 
-      // TODO: record undo info here (prevTarget, from, to)
-      return;
-    }
-  }
-  // Normal painter behavior (painting on destination if enemy piece exists)
-  const target = this.board.get(move.to);
-  if (defined(target) && target.color !== piece.color) {
-    const prevTarget = { role: target.role, color: target.color, promoted: target.promoted };
-    const paintedPiece = { role: target.role, color: piece.color, promoted: target.promoted };
-    this.board.set(move.to, paintedPiece);
-
-    // Painter does NOT move
-    this.board.set(move.from, piece);
-
-    if (prevTarget.role === 'rook') {
-      this.castles.discardRook(move.to);
-    }
-
-    return;
-  } else {
-    // No piece to paint: painter moves normally (like a pawn)
-    if (move.promotion) {
-      piece.role = move.promotion;
-      piece.promoted = !!this.pockets;
-    }
-    const capture = this.board.set(move.to, piece) || undefined;
-    if (capture) this.playCaptureAt(move.to, capture);
-  }
-      } else if (piece.role === 'rook') {
-        this.castles.discardRook(move.from);
-      } else if (piece.role === 'king') {
-        if (castling) {
-          const rookFrom = this.castles.rook[turn][castling];
-          if (defined(rookFrom)) {
-            const rook = this.board.take(rookFrom);
-            this.board.set(kingCastlesTo(turn, castling), piece);
-            if (rook) this.board.set(rookCastlesTo(turn, castling), rook);
-          }
+          return;
         }
-        this.castles.discardColor(turn);
+      }
+      // Normal painter behavior (painting on destination if enemy piece exists)
+      const target = this.board.get(move.to);
+      if (defined(target) && target.color !== piece.color) {
+        const prevTarget = { role: target.role, color: target.color, promoted: target.promoted };
+        const paintedPiece = { role: target.role, color: piece.color, promoted: target.promoted };
+        this.board.set(move.to, paintedPiece);
+
+        // Painter does NOT move
+        this.board.set(move.from, piece);
+
+        if (prevTarget.role === 'rook') {
+          this.castles.discardRook(move.to);
+        }
+
+        return;
+      } else {
+        // No piece to paint: painter moves normally (like a pawn)
+        if (move.promotion) {
+          piece.role = move.promotion;
+          piece.promoted = !!this.pockets;
+        }
+        const capture = this.board.set(move.to, piece) || undefined;
+        if (capture) this.playCaptureAt(move.to, capture);
+      }
+          } else if (piece.role === 'rook') {
+            this.castles.discardRook(move.from);
+          } else if (piece.role === 'king') {
+            if (castling) {
+              const rookFrom = this.castles.rook[turn][castling];
+              if (defined(rookFrom)) {
+                const rook = this.board.take(rookFrom);
+                this.board.set(kingCastlesTo(turn, castling), piece);
+                if (rook) this.board.set(rookCastlesTo(turn, castling), rook);
+              }
+            }
+            this.castles.discardColor(turn);
       }
 
       else if (piece.role === 'snare') {
-            // More robust occupancy check — use get() to detect any piece at `move.to`.
       const destBefore = this.board.get(move.to);
       if (defined(destBefore)) {
-        // Destination occupied -> snare cannot move there
+        // snare cannot capture
         return;
       }
-
-      // Move the snare piece (do not call playCaptureAt and do NOT treat as capture).
-      // Use board.set (which may return a captured piece if any) but we've already checked dest is empty.
       this.board.set(move.to, piece);
-      this.board.take(move.from);
-
-      // Defensive: If your Move objects carry a 'capture' flag, ensure it's false here.
-      // Depending on your type system this may require casting to any. This avoids a stale move.capture
       // being used by the PGN writer or UI after play().
       if ((move as any).capture) (move as any).capture = false;
-
-      // Return early to avoid generic capture-handlers after this block.
+      // Return early to avoid generic capture-handlers
       return;
     }
-
-      if (!castling) {
-        const capture = this.board.set(move.to, piece) || epCapture;
-        if (capture) this.playCaptureAt(move.to, capture);
+      else if (piece.role ==='wizard'){
+      const destBefore = this.board.get(move.to);
+      // 1) normal move
+      if (!defined(destBefore)) {
+        this.board.set(move.to, piece);
+        // from already cleared by board.take
+        return;
       }
-    }
+      // 2) normal capture
+      if (destBefore.color !== turn) {
+        const capture = this.board.set(move.to, piece) || undefined;
+        if (capture) this.playCaptureAt(move.to, capture);
+        return;
+      }
+      // 3) Destination occupied by friendly -> swap
+      if (destBefore.color === turn) {
+        const swappedPiece = { role: destBefore.role, color: destBefore.color, promoted: destBefore.promoted, moved: true };
+        if (
+          swappedPiece.role === 'pawn' &&
+          SquareSet.backranks().has(move.from) &&
+          move.promotion
+        ) {
+          swappedPiece.role = move.promotion;
+          swappedPiece.promoted = !!this.pockets;
+        }
+        // Move the wizard to the target square.
+        this.board.set(move.to, piece);
 
-    if (this.remainingChecks) {
-      if (this.isCheck()) this.remainingChecks[turn] = Math.max(this.remainingChecks[turn] - 1, 0);
+        // Put the swapped piece at the wizard's origin.
+        this.board.set(move.from, swappedPiece);
+
+        // discard castling rights if needed
+        if (swappedPiece.role === 'rook') {
+          this.castles.discardRook(move.to);
+        }
+        return;
+      }
+          }
+
+          if (!castling) {
+            const capture = this.board.set(move.to, piece) || epCapture;
+            if (capture) this.playCaptureAt(move.to, capture);
+          }
+        }
+
+        if (this.remainingChecks) {
+          if (this.isCheck()) this.remainingChecks[turn] = Math.max(this.remainingChecks[turn] - 1, 0);
+        }
+  }
+  
+private simulateWizardMoveIsLegal(from: Square, to: Square, ctx: Context): boolean {
+  const color = this.turn;
+  const opponent = opposite(color);
+  const target = this.board.get(to);
+  // Build a temp piece map from the current board
+  const tempPieceMap = new Map<Square, Piece>();
+  for (const [sq, p] of this.board) {
+    // shallow copy to avoid mutating originals
+    tempPieceMap.set(sq, { ...p });
+  }
+  const movingPiece = tempPieceMap.get(from);
+  if (!movingPiece) return false; // no piece at `from`
+  tempPieceMap.delete(from);
+
+  if (!target) {
+    // plain move
+    const movedPiece = { ...movingPiece, square: to, moved: true } as Piece;
+    tempPieceMap.set(to, movedPiece);
+  } else if (target.color !== color) {
+    // capture
+    tempPieceMap.delete(to);
+    const movedPiece = { ...movingPiece, square: to, moved: true } as Piece;
+    tempPieceMap.set(to, movedPiece);
+  } else {
+    const swappedPiece = tempPieceMap.get(to)!;
+    const newWizard  = { ...movingPiece,  square: to,   moved: true } as Piece;
+    const newTarget  = { ...swappedPiece, square: from, moved: true } as Piece;
+
+    tempPieceMap.set(to,   newWizard);
+    tempPieceMap.set(from, newTarget);
+  }
+  // Build temp occupied from tempPieceMap
+  let tempOccupied = SquareSet.empty();
+  for (const sq of tempPieceMap.keys()) {
+    tempOccupied = tempOccupied.union(SquareSet.fromSquare(sq));
+  }
+  // Locate king after applying the simulated move/swap
+  let kingSq: Square | undefined;
+  for (const [sq, p] of tempPieceMap) {
+    if (p.role === 'king' && p.color === color) {
+      kingSq = sq;
+      break;
     }
   }
+  if (kingSq === undefined) return false;
+  // Build a temporary Board that mirrors tempPieceMap (so attackers see the simulated position)
+  const tempBoard = Board.empty();
+  tempBoard.clear();
+  for (const [sq, p] of tempPieceMap) {
+    tempBoard.set(sq, p);
+  }
+  // Final legality checl: king must not be attacked in the simulated position
+  const attackers = attacksTo(kingSq, opponent, tempBoard, tempOccupied);
+  return attackers.isEmpty();
+}
 }
 
 export class Chess extends Position {
@@ -759,6 +886,10 @@ export const pseudoDests = (pos: Position, square: Square, ctx: Context): Square
     pseudo = snareAttacks(piece.color, square);
     // Snare cannot capture → remove all occupied squares
     pseudo = pseudo.diff(pos.board.white).diff(pos.board.black);
+  } else if (piece.role === 'wizard') {
+    // Include friendlies - wizard can swap
+    pseudo = wizardAttacks(square);
+
   } else {
     pseudo = attacks(piece, square, pos.board.occupied);
     pseudo = pseudo.diff(pos.board[pos.turn]);
