@@ -15,8 +15,10 @@ import {
   peasantAttacks,
   painterAttacks,
   snareAttacks,
-  wizardAttacks
+  wizardAttacks,
+  archerAttacks,
 } from './attacks.js';
+import { FILE_RANGE, RANK_RANGE, DIAG_RANGE, ANTI_DIAG_RANGE, ARCHER_DELTAS } from "./attacks";
 import { Board, boardEquals } from './board.js';
 import { Material, RemainingChecks, Setup } from './setup.js';
 import { SquareSet } from './squareSet.js';
@@ -33,7 +35,7 @@ import {
   Outcome,
   Piece,
   Rules,
-  Square,
+  Square
 } from './types.js';
 import { defined, kingCastlesTo, opposite, rookCastlesTo, squareRank, squareFile } from './util.js';
 
@@ -61,6 +63,7 @@ const attacksTo = (square: Square, attacker: Color, board: Board, occupied: Squa
       .union(peasantAttacks(square).intersect(board.peasant))
       .union(painterAttacks(opposite(attacker), square).intersect(board.painter))
       .union(wizardAttacks(square).intersect(board.wizard))
+      .union(archerAttacks(square, occupied).intersect(board.archer))
   );
 
 export class Castles {
@@ -223,41 +226,59 @@ export abstract class Position {
     if (this.pockets) this.pockets[opposite(captured.color)][captured.promoted ? 'pawn' : captured.role]++;
   }
 
-  ctx(): Context {
-    const variantEnd = this.isVariantEnd();
-    const king = this.board.kingOf(this.turn);
-    if (!defined(king)) {
-      return { king, blockers: SquareSet.empty(), checkers: SquareSet.empty(), variantEnd, mustCapture: false };
-    }
-    // Combine piece sets
-    const rookLikeSliders = this.board.rooksAndQueens()
-      .union(this.board.knook)      // knooks are rook-like
-      .union(this.board.amazon); // amazons are queen-like
-
-    const bishopLikeSliders = this.board.bishopsAndQueens()
-      .union(this.board.knishop)  // knishops also have bishop moves
-      .union(this.board.amazon); // amazons are queen-like
-
-    const snipers = rookAttacks(king, SquareSet.empty())
-      .intersect(rookLikeSliders)
-      .union(
-        bishopAttacks(king, SquareSet.empty()).intersect(bishopLikeSliders)
-      )
-      .intersect(this.board[opposite(this.turn)]);
-    let blockers = SquareSet.empty();
-    for (const sniper of snipers) {
-      const b = between(king, sniper).intersect(this.board.occupied);
-      if (!b.moreThanOne()) blockers = blockers.union(b);
-    }
-    const checkers = this.kingAttackers(king, opposite(this.turn), this.board.occupied);
-    return {
-      king,
-      blockers,
-      checkers,
-      variantEnd,
-      mustCapture: false,
-    };
+ctx(): Context {
+  const variantEnd = this.isVariantEnd();
+  const king = this.board.kingOf(this.turn);
+  if (!defined(king)) {
+    return { king, blockers: SquareSet.empty(), checkers: SquareSet.empty(), variantEnd, mustCapture: false };
   }
+  const rookLikeSliders = this.board.rooksAndQueens()
+    .union(this.board.knook) 
+    .union(this.board.amazon); 
+
+  const bishopLikeSliders = this.board.bishopsAndQueens()
+    .union(this.board.knishop) 
+    .union(this.board.amazon); 
+  const occ = this.board.occupied;
+
+  // build the set of ray-squares from the king (ignoring occupancy)
+  const rookLines = FILE_RANGE[king].union(RANK_RANGE[king]);        
+  const bishopLines = DIAG_RANGE[king].union(ANTI_DIAG_RANGE[king]); 
+
+  // candidate slider snipers ignoring occupancy
+  const sliderSnipers = rookLikeSliders
+    .intersect(rookLines)
+    .union(bishopLikeSliders.intersect(bishopLines))
+    .intersect(this.board[opposite(this.turn)]);
+
+ let archerSnipers = SquareSet.empty();
+  for (const d of ARCHER_DELTAS) {
+    for (let step = 2; step <= 3; step++) {
+      const sq = king + d * step;
+      // bounds check and file-wrap check
+      if (!(0 <= sq && sq < 64)) continue;
+      if (Math.abs(squareFile(sq) - squareFile(king)) !== step) continue;
+
+      // only keep if there's an opponent archer on that square
+      if (this.board[opposite(this.turn)].has(sq) && this.board.archer.has(sq)) {
+        archerSnipers = archerSnipers.with(sq);
+      }
+    }
+  }
+  const snipers = sliderSnipers.union(archerSnipers);
+
+
+  let blockers = SquareSet.empty();
+  for (const sniper of snipers) {
+    const b = between(king, sniper).intersect(this.board.occupied);
+    if (!b.moreThanOne()) blockers = blockers.union(b);
+  }
+
+  const checkers = this.kingAttackers(king, opposite(this.turn), this.board.occupied);
+
+  return { king, blockers, checkers, variantEnd, mustCapture: false };
+}
+
 
   clone(): Position {
     const pos = new (this as any).constructor();
@@ -351,6 +372,9 @@ export abstract class Position {
     }
     else if (piece.role === 'wizard'){
       pseudo = wizardAttacks(square);
+    }
+    else if (piece.role == 'archer'){
+      pseudo = archerAttacks(square, this.board.occupied);
     }
     else pseudo = kingAttacks(square);
   
@@ -678,7 +702,20 @@ isLegal(move: Move, ctx?: Context): boolean {
         }
         return;
       }
+      }
+        else if (piece.role === 'archer'){
+          const from = move.from;
+          const to = move.to;
+          const fileDelta = Math.abs(squareFile(to) - squareFile(from));
+          const rankDelta = Math.abs(squareRank(to) - squareRank(from));
+          const maxDelta = Math.max(fileDelta, rankDelta);
+          if (maxDelta > 1 && (fileDelta===rankDelta)){
+            const captured = this.board.take(to);
+            this.board.set(from, piece); 
+            this.halfmoves = 0;
+            return;
           }
+        }
 
           if (!castling) {
             const capture = this.board.set(move.to, piece) || epCapture;

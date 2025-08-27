@@ -61,6 +61,8 @@ const SNARE_ATTACKS = {
   black: tabulate(sq => singleStepTargets(sq, [-8, -9, -7])),
 };
 
+export const ARCHER_DELTAS = [7, 9, -7, -9];
+
 const ORTHOGONAL_DELTAS = [8, -8, 1, -1];
 
 const WIZARD_ATTACKS = tabulate(sq => {
@@ -102,16 +104,16 @@ export const knightAttacks = (square: Square): SquareSet => KNIGHT_ATTACKS[squar
  */
 export const pawnAttacks = (color: Color, square: Square): SquareSet => PAWN_ATTACKS[color][square];
 
-const FILE_RANGE = tabulate(sq => SquareSet.fromFile(squareFile(sq)).without(sq));
-const RANK_RANGE = tabulate(sq => SquareSet.fromRank(squareRank(sq)).without(sq));
+export const FILE_RANGE = tabulate(sq => SquareSet.fromFile(squareFile(sq)).without(sq));
+export const RANK_RANGE = tabulate(sq => SquareSet.fromRank(squareRank(sq)).without(sq));
 
-const DIAG_RANGE = tabulate(sq => {
+export const DIAG_RANGE = tabulate(sq => {
   const diag = new SquareSet(0x0804_0201, 0x8040_2010);
   const shift = 8 * (squareRank(sq) - squareFile(sq));
   return (shift >= 0 ? diag.shl64(shift) : diag.shr64(-shift)).without(sq);
 });
 
-const ANTI_DIAG_RANGE = tabulate(sq => {
+export const ANTI_DIAG_RANGE = tabulate(sq => {
   const diag = new SquareSet(0x1020_4080, 0x0102_0408);
   const shift = 8 * (squareRank(sq) + squareFile(sq) - 7);
   return (shift >= 0 ? diag.shl64(shift) : diag.shr64(-shift)).without(sq);
@@ -181,7 +183,45 @@ export const painterAttacks = (color: Color, square: Square): SquareSet => PAWN_
 /** Gets squares attacked or defended by a snare */
 export const snareAttacks = (color: Color, square: Square): SquareSet => SNARE_ATTACKS[color][square];
 
+/** Gets squares attacked or defended by a wizard */
 export const wizardAttacks = (square: Square): SquareSet => WIZARD_ATTACKS[square];
+
+/** Gets squares attacked or defended by an archer on `square`. */
+export const archerAttacks = (square: Square, occupied: SquareSet): SquareSet => {
+  let s = SquareSet.empty();
+
+  for (const d of ARCHER_DELTAS) {
+    // step 1: adjacent diagonal (always added)
+    const first = square + d;
+    if (0 <= first && first < 64 && Math.abs(squareFile(first) - squareFile(square)) === 1) {
+      s = s.with(first);
+      if (occupied.has(first)) {
+        // blocked at step 1 — nothing beyond
+        continue;
+      }
+    } else {
+      // can't take step 1 in this direction (offboard/wrap) => skip direction
+      continue;
+    }
+
+    // steps 2..3: only add the first occupied square (if any), stop when we hit a blocker
+    for (let step = 2; step <= 3; step++) {
+      const to = square + d * step;
+      if (!(0 <= to && to < 64)) break;
+      // ensure file didn't wrap; for a diagonal move file delta must equal step
+      if (Math.abs(squareFile(to) - squareFile(square)) !== step) break;
+
+      if (occupied.has(to)) {
+        // add the blocker (friend or enemy) — archer "attacks" it (can capture enemy)
+        s = s.with(to);
+        break; // can't shoot/attack past this blocker
+      }
+      // if empty — do not add it, but continue to potentially reach the next square
+    }
+  }
+
+  return s;
+};
 
 /**
  * Gets squares attacked or defended by a `piece` on `square`, given
@@ -215,6 +255,8 @@ export const attacks = (piece: Piece, square: Square, occupied: SquareSet): Squa
       return snareAttacks(piece.color, square);
     case 'wizard':
       return wizardAttacks(square);
+    case 'archer':
+      return archerAttacks(square, occupied);
   }
 };
 

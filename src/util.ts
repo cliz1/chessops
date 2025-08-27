@@ -52,6 +52,8 @@ export const roleToChar = (role: Role): LowerCaseRoleChar => {
       return 's';
     case 'wizard':
       return 'w';
+    case 'archer':
+      return 'c';
   }
 };
 
@@ -85,6 +87,8 @@ export function charToRole(ch: string): Role | undefined {
       return 'snare';
     case 'w':
       return 'wizard';
+    case 'c':
+      return 'archer';
     default:
       return;
   }

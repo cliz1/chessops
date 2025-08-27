@@ -16,6 +16,7 @@ export class MaterialSide implements ByRole<number> {
   painter: number;
   snare: number;
   wizard: number;
+  archer: number;
 
   private constructor() {}
 
