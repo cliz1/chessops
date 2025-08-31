@@ -29,10 +29,10 @@ export class Board implements Iterable<[Square, Piece]>, ByRole<SquareSet>, ByCo
   rook: SquareSet;
   queen: SquareSet;
   king: SquareSet;
-  knook: SquareSet;
-  knishop: SquareSet;
+  champion: SquareSet;
+  princess: SquareSet;
   amazon: SquareSet;
-  peasant: SquareSet;
+  commoner: SquareSet;
   painter: SquareSet;
   snare: SquareSet;
   wizard: SquareSet;
@@ -60,10 +60,10 @@ export class Board implements Iterable<[Square, Piece]>, ByRole<SquareSet>, ByCo
     this.rook = new SquareSet(0x81, 0x8100_0000);
     this.queen = new SquareSet(0x8, 0x0800_0000);
     this.king = new SquareSet(0x10, 0x1000_0000);
-    this.knook = SquareSet.empty();
-    this.knishop = SquareSet.empty();
+    this.champion = SquareSet.empty();
+    this.princess = SquareSet.empty();
     this.amazon = SquareSet.empty();
-    this.peasant = SquareSet.empty();
+    this.commoner = SquareSet.empty();
     this.painter = SquareSet.empty();
     this.snare = SquareSet.empty();
     this.wizard = SquareSet.empty();

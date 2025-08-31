@@ -162,20 +162,20 @@ export const rookAttacks = (square: Square, occupied: SquareSet): SquareSet =>
 export const queenAttacks = (square: Square, occupied: SquareSet): SquareSet =>
   bishopAttacks(square, occupied).xor(rookAttacks(square, occupied));
 
-/** Gets squares attacked or defended by a knook  */
-export const knookAttacks = (square: Square, occupied: SquareSet): SquareSet =>
+/** Gets squares attacked or defended by a champion  */
+export const championAttacks = (square: Square, occupied: SquareSet): SquareSet =>
   knightAttacks(square).xor(rookAttacks(square, occupied));
 
-/** Gets squares attacked or defended by a knishop */
-export const knishopAttacks = (square: Square, occupied: SquareSet): SquareSet =>
+/** Gets squares attacked or defended by a princess */
+export const princessAttacks = (square: Square, occupied: SquareSet): SquareSet =>
   bishopAttacks(square, occupied).xor(knightAttacks(square));
 
 /** Gets squares attacked or defended by an amazon */
 export const amazonAttacks = (square: Square, occupied: SquareSet): SquareSet =>
   queenAttacks(square, occupied).xor(knightAttacks(square));
 
-/** Gets squares attacked or defended by a peasant */
-export const peasantAttacks = (square: Square): SquareSet => KING_ATTACKS[square];
+/** Gets squares attacked or defended by a commoner */
+export const commonerAttacks = (square: Square): SquareSet => KING_ATTACKS[square];
 
 /** Gets squares attacked or defended by a painter */
 export const painterAttacks = (color: Color, square: Square): SquareSet => PAWN_ATTACKS[color][square];
@@ -241,14 +241,14 @@ export const attacks = (piece: Piece, square: Square, occupied: SquareSet): Squa
       return queenAttacks(square, occupied);
     case 'king':
       return kingAttacks(square);
-    case 'knook':
+    case 'champion':
       return knightAttacks(square).xor(rookAttacks(square, occupied));
-    case 'knishop':
+    case 'princess':
       return bishopAttacks(square, occupied).xor(knightAttacks(square));
     case 'amazon':
       return queenAttacks(square, occupied).xor(knightAttacks(square));
-    case 'peasant':
-      return peasantAttacks(square);
+    case 'commoner':
+      return commonerAttacks(square);
     case 'painter':
       return painterAttacks(piece.color, square);
     case 'snare':

@@ -273,7 +273,7 @@ export const makeCastlingFen = (board: Board, castlingRights: SquareSet): string
     const backrank = SquareSet.backrank(color);
     let king = board.kingOf(color);
     if (defined(king) && !backrank.has(king)) king = undefined;
-    const candidates = board.pieces(color, 'rook').union(board.pieces(color, 'knook')).intersect(backrank);
+    const candidates = board.pieces(color, 'rook').union(board.pieces(color, 'champion')).intersect(backrank);
     for (const rook of castlingRights.intersect(backrank).reversed()) {
       if (rook === candidates.first() && defined(king) && rook < king) {
         fen += color === 'white' ? 'Q' : 'q';

@@ -9,10 +9,10 @@ import {
   queenAttacks,
   ray,
   rookAttacks,
-  knookAttacks,
-  knishopAttacks,
+  championAttacks,
+  princessAttacks,
   amazonAttacks,
-  peasantAttacks,
+  commonerAttacks,
   painterAttacks,
   snareAttacks,
   wizardAttacks,
@@ -57,10 +57,10 @@ const attacksTo = (square: Square, attacker: Color, board: Board, occupied: Squa
       .union(knightAttacks(square).intersect(board.knight))
       .union(kingAttacks(square).intersect(board.king))
       .union(pawnAttacks(opposite(attacker), square).intersect(board.pawn))
-      .union(knookAttacks(square, occupied).intersect(board.knook))
-      .union(knishopAttacks(square, occupied).intersect(board.knishop))
+      .union(championAttacks(square, occupied).intersect(board.champion))
+      .union(princessAttacks(square, occupied).intersect(board.princess))
       .union(amazonAttacks(square, occupied).intersect(board.amazon))
-      .union(peasantAttacks(square).intersect(board.peasant))
+      .union(commonerAttacks(square).intersect(board.commoner))
       .union(painterAttacks(opposite(attacker), square).intersect(board.painter))
       .union(wizardAttacks(square).intersect(board.wizard))
       .union(archerAttacks(square, occupied).intersect(board.archer))
@@ -129,7 +129,7 @@ export class Castles {
 
   static fromSetup(setup: Setup): Castles {
     const castles = Castles.empty();
-    const castlers = setup.castlingRights.intersect(setup.board.rook.union(setup.board.knook));
+    const castlers = setup.castlingRights.intersect(setup.board.rook.union(setup.board.champion));
     for (const color of COLORS) {
       const backrank = SquareSet.backrank(color);
       const king = setup.board.kingOf(color);
@@ -233,11 +233,11 @@ ctx(): Context {
     return { king, blockers: SquareSet.empty(), checkers: SquareSet.empty(), variantEnd, mustCapture: false };
   }
   const rookLikeSliders = this.board.rooksAndQueens()
-    .union(this.board.knook) 
+    .union(this.board.champion) 
     .union(this.board.amazon); 
 
   const bishopLikeSliders = this.board.bishopsAndQueens()
-    .union(this.board.knishop) 
+    .union(this.board.princess) 
     .union(this.board.amazon); 
   const occ = this.board.occupied;
 
@@ -361,10 +361,10 @@ ctx(): Context {
     else if (piece.role === 'knight') pseudo = knightAttacks(square);
     else if (piece.role === 'rook') pseudo = rookAttacks(square, this.board.occupied);
     else if (piece.role === 'queen') pseudo = queenAttacks(square, this.board.occupied);
-    else if (piece.role === 'knook') pseudo = knightAttacks(square).xor(rookAttacks(square, this.board.occupied));
-    else if (piece.role === 'knishop') pseudo = bishopAttacks(square, this.board.occupied).xor(knightAttacks(square));
+    else if (piece.role === 'champion') pseudo = knightAttacks(square).xor(rookAttacks(square, this.board.occupied));
+    else if (piece.role === 'princess') pseudo = bishopAttacks(square, this.board.occupied).xor(knightAttacks(square));
     else if (piece.role === 'amazon') pseudo = queenAttacks(square, this.board.occupied).xor(knightAttacks(square));
-    else if (piece.role === 'peasant') pseudo = peasantAttacks(square);
+    else if (piece.role === 'commoner') pseudo = commonerAttacks(square);
     else if (piece.role === 'snare') {
       pseudo = snareAttacks(piece.color, square);
       // Snare cannot capture
@@ -850,7 +850,7 @@ const castlingDest = (pos: Position, side: CastlingSide, ctx: Context): SquareSe
   const rook = pos.castles.rook[pos.turn][side];
   if (!defined(rook)) return SquareSet.empty();
   const rookPiece = pos.board.get(rook);
-  if (!rookPiece || (rookPiece.role !== 'rook' && rookPiece.role !== 'knook')) return SquareSet.empty();
+  if (!rookPiece || (rookPiece.role !== 'rook' && rookPiece.role !== 'champion')) return SquareSet.empty();
   if (pos.castles.path[pos.turn][side].intersects(pos.board.occupied)) return SquareSet.empty();
 
   const kingTo = kingCastlesTo(pos.turn, side);
