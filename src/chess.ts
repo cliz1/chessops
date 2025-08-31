@@ -445,21 +445,64 @@ ctx(): Context {
     return;
   }
 
-  hasInsufficientMaterial(color: Color): boolean {
-    if (this.board[color].intersect(this.board.pawn.union(this.board.rooksAndQueens())).nonEmpty()) return false;
-    if (this.board[color].intersects(this.board.knight)) {
-      return (
-        this.board[color].size() <= 2
-        && this.board[opposite(color)].diff(this.board.king).diff(this.board.queen).isEmpty()
-      );
-    }
-    if (this.board[color].intersects(this.board.bishop)) {
-      const sameColor = !this.board.bishop.intersects(SquareSet.darkSquares())
-        || !this.board.bishop.intersects(SquareSet.lightSquares());
-      return sameColor && this.board.pawn.isEmpty() && this.board.knight.isEmpty();
-    }
+hasInsufficientMaterial(color: Color): boolean {
+  const side = this.board[color];
+  const opp = this.board[opposite(color)];
+
+  // shorthand sets on the board
+  const pawns = this.board.pawn;
+  const rooksQueens = this.board.rooksAndQueens();
+  const painter = this.board.painter;
+  const knights = this.board.knight;
+  const bishopsSet = this.board.bishop;
+  const canMate = this.board.champion
+    .union(this.board.princess)
+    .union(this.board.amazon)
+    .union(this.board.commoner)
+    .union(this.board.wizard);
+
+  const nonMating = this.board.snare.union(this.board.archer);
+
+  // 1) If side has pawns, rooks/queens, painter (promotion-like), or any can-mate piece => sufficient
+  if (side.intersect(pawns.union(rooksQueens).union(painter).union(canMate)).nonEmpty()) {
+    return false;
+  }
+
+  // 2) Only king? => insufficient
+  if (side.diff(this.board.king).isEmpty()) return true;
+
+  // 3) If side's only non-king pieces are non-mating pieces and opponent only has king => insufficient
+  if (side.diff(this.board.king).diff(nonMating).isEmpty() && opp.diff(this.board.king).isEmpty()) {
     return true;
   }
+
+  // 4) Knights-only cases: (side has knights and nothing else but king) vs lone king => insufficient
+  if (
+    side.intersect(knights).nonEmpty() &&
+    side.diff(this.board.king).diff(knights).isEmpty() &&
+    opp.diff(this.board.king).isEmpty()
+  ) {
+    return true;
+  }
+
+  // 5) Bishops-only: check bishops belonging to side (use side.intersect on the board's bishop set)
+  const sideBishops = side.intersect(bishopsSet);
+  if (
+    sideBishops.nonEmpty() &&
+    side.diff(this.board.king).diff(bishopsSet).isEmpty() &&
+    opp.diff(this.board.king).isEmpty()
+  ) {
+    const bishopsOnDark = sideBishops.intersects(SquareSet.darkSquares());
+    const bishopsOnLight = sideBishops.intersects(SquareSet.lightSquares());
+    const sameSquareColor = !(bishopsOnDark && bishopsOnLight); // true if bishops are NOT on both colors
+    if (sameSquareColor) return true;
+  }
+
+  // otherwise sufficient material
+  return false;
+}
+
+
 
   // The following should be identical in all subclasses
 
