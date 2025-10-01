@@ -14,6 +14,7 @@ import {
   amazonAttacks,
   commonerAttacks,
   painterAttacks,
+  royalpainterAttacks,
   snareAttacks,
   wizardAttacks,
   archerAttacks,
@@ -64,6 +65,7 @@ const attacksTo = (square: Square, attacker: Color, board: Board, occupied: Squa
       .union(painterAttacks(opposite(attacker), square).intersect(board.painter))
       .union(wizardAttacks(square).intersect(board.wizard))
       .union(archerAttacks(square, occupied).intersect(board.archer))
+      .union(royalpainterAttacks(square)).intersect(board.royalpainter)
   );
 
 export class Castles {
@@ -365,6 +367,7 @@ ctx(): Context {
     else if (piece.role === 'princess') pseudo = bishopAttacks(square, this.board.occupied).xor(knightAttacks(square));
     else if (piece.role === 'amazon') pseudo = queenAttacks(square, this.board.occupied).xor(knightAttacks(square));
     else if (piece.role === 'commoner') pseudo = commonerAttacks(square);
+    else if (piece.role === 'royalpainter') pseudo = royalpainterAttacks(square);
     else if (piece.role === 'snare') {
       pseudo = snareAttacks(piece.color, square);
       // Snare cannot capture
@@ -459,6 +462,7 @@ hasInsufficientMaterial(color: Color): boolean {
     .union(this.board.princess)
     .union(this.board.amazon)
     .union(this.board.commoner)
+    .union(this.board.royalpainter)
     .union(this.board.wizard);
 
   const nonMating = this.board.snare.union(this.board.archer);
@@ -633,12 +637,12 @@ isLegal(move: Move, ctx?: Context): boolean {
           piece.role = move.promotion;
           piece.promoted = !!this.pockets;
       }
-    } else if (piece.role === 'painter'){
+    } else if (piece.role === 'painter' || piece.role === 'royalpainter'){
       // Reset halfmove clock (like a capture)
       this.halfmoves = 0;
 
       // painter's special en passant
-      if (move.to === epSquare) {
+      if (move.to === epSquare && piece.role === 'painter') {
         const wouldBeCapturedSquare = move.to + (turn === 'white' ? -8 : 8);
         const target = this.board.get(wouldBeCapturedSquare);
 

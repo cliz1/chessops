@@ -180,6 +180,9 @@ export const commonerAttacks = (square: Square): SquareSet => KING_ATTACKS[squar
 /** Gets squares attacked or defended by a painter */
 export const painterAttacks = (color: Color, square: Square): SquareSet => PAWN_ATTACKS[color][square];
 
+/** Gets squares attacked or defended by a royal painter */
+export const royalpainterAttacks = (square: Square): SquareSet => KING_ATTACKS[square];
+
 /** Gets squares attacked or defended by a snare */
 export const snareAttacks = (color: Color, square: Square): SquareSet => SNARE_ATTACKS[color][square];
 
@@ -257,6 +260,8 @@ export const attacks = (piece: Piece, square: Square, occupied: SquareSet): Squa
       return wizardAttacks(square);
     case 'archer':
       return archerAttacks(square, occupied);
+    case 'royalpainter':
+      return royalpainterAttacks(square);
   }
 };
 
