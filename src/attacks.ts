@@ -87,6 +87,13 @@ const WIZARD_ATTACKS = tabulate(sq => {
   return s;
 });
 
+const ROLLINGSNARE_ATTACKS = tabulate(sq => {
+  let s = KING_ATTACKS[sq];
+  s = s.union(WIZARD_ATTACKS[sq]);
+
+  return s;
+});
+
 
 /**
  * Gets squares attacked or defended by a king on `square`.
@@ -186,6 +193,9 @@ export const royalpainterAttacks = (square: Square): SquareSet => KING_ATTACKS[s
 /** Gets squares attacked or defended by a snare */
 export const snareAttacks = (color: Color, square: Square): SquareSet => SNARE_ATTACKS[color][square];
 
+/** Gets squares attacked or defended by a snare */
+export const rollingsnareAttacks = (square: Square): SquareSet => ROLLINGSNARE_ATTACKS[square];
+
 /** Gets squares attacked or defended by a wizard */
 export const wizardAttacks = (square: Square): SquareSet => WIZARD_ATTACKS[square];
 
@@ -262,6 +272,8 @@ export const attacks = (piece: Piece, square: Square, occupied: SquareSet): Squa
       return archerAttacks(square, occupied);
     case 'royalpainter':
       return royalpainterAttacks(square);
+    case 'rollingsnare':
+      return rollingsnareAttacks(square);
   }
 };
 

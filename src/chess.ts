@@ -18,6 +18,7 @@ import {
   snareAttacks,
   wizardAttacks,
   archerAttacks,
+  rollingsnareAttacks
 } from './attacks.js';
 import { FILE_RANGE, RANK_RANGE, DIAG_RANGE, ANTI_DIAG_RANGE, ARCHER_DELTAS } from "./attacks";
 import { Board, boardEquals } from './board.js';
@@ -327,8 +328,11 @@ ctx(): Context {
     // --- Snaring restriction ---
     let allSnareZones = SquareSet.empty();
     for (const [sq, bPiece] of this.board) {
-      if (bPiece.role === 'snare') {
-        const zone = snareZone(this as unknown as Position, sq, bPiece.color);
+      if (bPiece.role === 'snare' || bPiece.role === 'rollingsnare') {
+        const zone = bPiece.role === 'snare'
+          ? snareZone(this as unknown as Position, sq, bPiece.color)
+          : rollingSnareZone(this as unknown as Position, sq, bPiece.color);
+
         for (const z of zone) {
           const target = this.board.get(z);
           if (defined(target) && target.color !== bPiece.color) {
@@ -337,7 +341,7 @@ ctx(): Context {
         }
       }
     }
-    if (piece.role !== 'snare' && allSnareZones.has(square)) {
+    if (allSnareZones.has(square)) {
       return SquareSet.empty();
     }
 
@@ -371,6 +375,11 @@ ctx(): Context {
     else if (piece.role === 'snare') {
       pseudo = snareAttacks(piece.color, square);
       // Snare cannot capture
+      pseudo = pseudo.diff(this.board.white).diff(this.board.black);
+    }
+    else if (piece.role === 'rollingsnare') {
+      pseudo = rollingsnareAttacks(square);
+      // cannot capture
       pseudo = pseudo.diff(this.board.white).diff(this.board.black);
     }
     else if (piece.role === 'wizard'){
@@ -465,7 +474,7 @@ hasInsufficientMaterial(color: Color): boolean {
     .union(this.board.royalpainter)
     .union(this.board.wizard);
 
-  const nonMating = this.board.snare.union(this.board.archer);
+  const nonMating = this.board.snare.union(this.board.archer).union(this.board.rollingsnare);
 
   // 1) If side has pawns, rooks/queens, painter (promotion-like), or any can-mate piece => sufficient
   if (side.intersect(pawns.union(rooksQueens).union(painter).union(canMate)).nonEmpty()) {
@@ -505,8 +514,6 @@ hasInsufficientMaterial(color: Color): boolean {
   // otherwise sufficient material
   return false;
 }
-
-
 
   // The following should be identical in all subclasses
 
@@ -700,7 +707,7 @@ isLegal(move: Move, ctx?: Context): boolean {
             this.castles.discardColor(turn);
       }
 
-      else if (piece.role === 'snare') {
+      else if (piece.role === 'snare' || piece.role === 'rollingsnare') {
       const destBefore = this.board.get(move.to);
       if (defined(destBefore)) {
         // snare cannot capture
@@ -925,6 +932,16 @@ const snareZone = (pos: Position, square: Square, color: Color): SquareSet => {
   return zone;
 };
 
+function rollingSnareZone(pos: Position, sq: Square, color: Color): SquareSet {
+  let zone = snareZone(pos, sq, color);
+  const behindDelta = color === 'white' ? -8 : 8;
+  const behind = sq + behindDelta;
+  if (0 <= behind && behind < 64) {
+    zone = zone.with(behind);
+  }
+  return zone;
+}
+
 
 
 export const pseudoDests = (pos: Position, square: Square, ctx: Context): SquareSet => {
@@ -932,22 +949,25 @@ export const pseudoDests = (pos: Position, square: Square, ctx: Context): Square
   const piece = pos.board.get(square);
   if (!piece || piece.color !== pos.turn) return SquareSet.empty();
 
-  // --- Snaring restriction ---
-  let allSnareZones = SquareSet.empty();
-  for (const [sq, bPiece] of pos.board) {
-    if (bPiece.role === 'snare') {
-      const zone = snareZone(pos, sq, bPiece.color);
-      for (const z of zone) {
-        const target = pos.board.get(z);
-        if (defined(target) && target.color !== bPiece.color) {
-          allSnareZones = allSnareZones.with(z);
+   // --- Snaring restriction ---
+    let allSnareZones = SquareSet.empty();
+    for (const [sq, bPiece] of pos.board) {
+      if (bPiece.role === 'snare' || bPiece.role === 'rollingsnare') {
+        const zone = bPiece.role === 'snare'
+          ? snareZone(this as unknown as Position, sq, bPiece.color)
+          : rollingSnareZone(this as unknown as Position, sq, bPiece.color);
+
+        for (const z of zone) {
+          const target = pos.board.get(z);
+          if (defined(target) && target.color !== bPiece.color) {
+            allSnareZones = allSnareZones.with(z);
+          }
         }
       }
     }
-  }
-  if (piece.role !== 'snare' && allSnareZones.has(square)) {
-    return SquareSet.empty();
-  }
+    if (piece.role !== 'snare' && piece.role !== 'rollingsnare' && allSnareZones.has(square)) {
+      return SquareSet.empty();
+    }
 
   // --- Normal pseudo move generation ---
   let pseudo: SquareSet;
@@ -970,7 +990,13 @@ export const pseudoDests = (pos: Position, square: Square, ctx: Context): Square
     pseudo = snareAttacks(piece.color, square);
     // Snare cannot capture → remove all occupied squares
     pseudo = pseudo.diff(pos.board.white).diff(pos.board.black);
-  } else if (piece.role === 'wizard') {
+  } 
+  else if (piece.role === 'rollingsnare') {
+      pseudo = rollingsnareAttacks(square);
+      // cannot capture
+      pseudo = pseudo.diff(pos.board.white).diff(pos.board.black);
+    }
+  else if (piece.role === 'wizard') {
     // Include friendlies - wizard can swap
     pseudo = wizardAttacks(square);
 
