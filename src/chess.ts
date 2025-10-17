@@ -66,7 +66,7 @@ const attacksTo = (square: Square, attacker: Color, board: Board, occupied: Squa
       .union(painterAttacks(opposite(attacker), square).intersect(board.painter))
       .union(wizardAttacks(square).intersect(board.wizard))
       .union(archerAttacks(square, occupied).intersect(board.archer))
-      .union(royalpainterAttacks(square)).intersect(board.royalpainter)
+      .union(royalpainterAttacks(square).intersect(board.royalpainter))
   );
 
 export class Castles {
@@ -554,13 +554,13 @@ isLegal(move: Move, ctx?: Context): boolean {
 
     // Helper info about the from/to squares and board pieces
     const targetPiece = this.board.get(move.to); // Piece | undefined
-    const fromIsPawnLike = this.board.pawn.has(move.from) || (this.board.painter && this.board.painter.has(move.from));
+    const fromIsPawnLike = this.board.pawn.has(move.from) || (this.board.painter && this.board.painter.has(move.from)) || (this.board.snare && this.board.snare.has(move.from));
     const fromIsWizard = this.board.wizard && this.board.wizard.has(move.from);
 
     let willRequirePromotion = false;
 
     if (fromIsPawnLike) {
-      // a pawn/painter moving to the backrank => promotion required
+      // a pawn/painter/snare moving to the backrank => promotion required
       willRequirePromotion = SquareSet.backranks().has(move.to);
     } else if (fromIsWizard && targetPiece && targetPiece.role === 'pawn' && targetPiece.color === this.turn) {
       willRequirePromotion = SquareSet.backranks().has(move.from);
@@ -708,6 +708,10 @@ isLegal(move: Move, ctx?: Context): boolean {
       }
 
       else if (piece.role === 'snare' || piece.role === 'rollingsnare') {
+          if (move.promotion) {
+          piece.role = move.promotion;
+          piece.promoted = !!this.pockets;
+        }
       const destBefore = this.board.get(move.to);
       if (defined(destBefore)) {
         // snare cannot capture
