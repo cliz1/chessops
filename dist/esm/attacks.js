@@ -1,0 +1,258 @@
+/**
+ * Compute attacks and rays.
+ *
+ * These are low-level functions that can be used to implement chess rules.
+ *
+ * Implementation notes: Sliding attacks are computed using
+ * [Hyperbola Quintessence](https://www.chessprogramming.org/Hyperbola_Quintessence).
+ * Magic Bitboards would deliver slightly faster lookups, but also require
+ * initializing considerably larger attack tables. On the web, initialization
+ * time is important, so the chosen method may strike a better balance.
+ *
+ * @packageDocumentation
+ */
+import { SquareSet } from './squareSet.js';
+import { squareFile, squareRank } from './util.js';
+const computeRange = (square, deltas) => {
+    let range = SquareSet.empty();
+    for (const delta of deltas) {
+        const sq = square + delta;
+        if (0 <= sq && sq < 64 && Math.abs(squareFile(square) - squareFile(sq)) <= 2) {
+            range = range.with(sq);
+        }
+    }
+    return range;
+};
+const tabulate = (f) => {
+    const table = [];
+    for (let square = 0; square < 64; square++)
+        table[square] = f(square);
+    return table;
+};
+const KING_ATTACKS = tabulate(sq => computeRange(sq, [-9, -8, -7, -1, 1, 7, 8, 9]));
+const KNIGHT_ATTACKS = tabulate(sq => computeRange(sq, [-17, -15, -10, -6, 6, 10, 15, 17]));
+const PAWN_ATTACKS = {
+    white: tabulate(sq => computeRange(sq, [7, 9])),
+    black: tabulate(sq => computeRange(sq, [-7, -9])),
+};
+// helper: single-step offsets that also avoid file-wrap issues
+function singleStepTargets(sq, deltas) {
+    let set = SquareSet.empty();
+    for (const d of deltas) {
+        const to = sq + d;
+        if (0 <= to && to < 64) {
+            // ensure we didn't wrap files when applying +/-1
+            const fileDelta = Math.abs(squareFile(to) - squareFile(sq));
+            if (fileDelta <= 1)
+                set = set.with(to);
+        }
+    }
+    return set;
+}
+const SNARE_ATTACKS = {
+    // white snare "forward" is +8; left/right are +7 and +9 (single step).
+    white: tabulate(sq => singleStepTargets(sq, [8, 7, 9])),
+    // black snare "forward" is -8; left/right -7 and -9.
+    black: tabulate(sq => singleStepTargets(sq, [-8, -9, -7])),
+};
+export const ARCHER_DELTAS = [7, 9, -7, -9];
+const ORTHOGONAL_DELTAS = [8, -8, 1, -1];
+const WIZARD_ATTACKS = tabulate(sq => {
+    // Start with empty
+    let s = SquareSet.empty();
+    // For each orthogonal direction, add 1-step and (if legal) 2-step
+    for (const d of ORTHOGONAL_DELTAS) {
+        // first step(s) from sq in direction d
+        const firstStepSet = singleStepTargets(sq, [d]);
+        for (const first of firstStepSet) {
+            s = s.with(first);
+            // second step: singleStepTargets applied to first in the same direction
+            const secondStepSet = singleStepTargets(first, [d]);
+            for (const second of secondStepSet) {
+                s = s.with(second);
+            }
+        }
+    }
+    return s;
+});
+const ROLLINGSNARE_ATTACKS = tabulate(sq => {
+    let s = KING_ATTACKS[sq];
+    s = s.union(WIZARD_ATTACKS[sq]);
+    return s;
+});
+/**
+ * Gets squares attacked or defended by a king on `square`.
+ */
+export const kingAttacks = (square) => KING_ATTACKS[square];
+/**
+ * Gets squares attacked or defended by a knight on `square`.
+ */
+export const knightAttacks = (square) => KNIGHT_ATTACKS[square];
+/**
+ * Gets squares attacked or defended by a pawn of the given `color`
+ * on `square`.
+ */
+export const pawnAttacks = (color, square) => PAWN_ATTACKS[color][square];
+export const FILE_RANGE = tabulate(sq => SquareSet.fromFile(squareFile(sq)).without(sq));
+export const RANK_RANGE = tabulate(sq => SquareSet.fromRank(squareRank(sq)).without(sq));
+export const DIAG_RANGE = tabulate(sq => {
+    const diag = new SquareSet(134480385, 2151686160);
+    const shift = 8 * (squareRank(sq) - squareFile(sq));
+    return (shift >= 0 ? diag.shl64(shift) : diag.shr64(-shift)).without(sq);
+});
+export const ANTI_DIAG_RANGE = tabulate(sq => {
+    const diag = new SquareSet(270549120, 16909320);
+    const shift = 8 * (squareRank(sq) + squareFile(sq) - 7);
+    return (shift >= 0 ? diag.shl64(shift) : diag.shr64(-shift)).without(sq);
+});
+const hyperbola = (bit, range, occupied) => {
+    let forward = occupied.intersect(range);
+    let reverse = forward.bswap64(); // Assumes no more than 1 bit per rank
+    forward = forward.minus64(bit);
+    reverse = reverse.minus64(bit.bswap64());
+    return forward.xor(reverse.bswap64()).intersect(range);
+};
+const fileAttacks = (square, occupied) => hyperbola(SquareSet.fromSquare(square), FILE_RANGE[square], occupied);
+const rankAttacks = (square, occupied) => {
+    const range = RANK_RANGE[square];
+    let forward = occupied.intersect(range);
+    let reverse = forward.rbit64();
+    forward = forward.minus64(SquareSet.fromSquare(square));
+    reverse = reverse.minus64(SquareSet.fromSquare(63 - square));
+    return forward.xor(reverse.rbit64()).intersect(range);
+};
+/**
+ * Gets squares attacked or defended by a bishop on `square`, given `occupied`
+ * squares.
+ */
+export const bishopAttacks = (square, occupied) => {
+    const bit = SquareSet.fromSquare(square);
+    return hyperbola(bit, DIAG_RANGE[square], occupied).xor(hyperbola(bit, ANTI_DIAG_RANGE[square], occupied));
+};
+/**
+ * Gets squares attacked or defended by a rook on `square`, given `occupied`
+ * squares.
+ */
+export const rookAttacks = (square, occupied) => fileAttacks(square, occupied).xor(rankAttacks(square, occupied));
+/**
+ * Gets squares attacked or defended by a queen on `square`, given `occupied`
+ * squares.
+ */
+export const queenAttacks = (square, occupied) => bishopAttacks(square, occupied).xor(rookAttacks(square, occupied));
+/** Gets squares attacked or defended by a champion  */
+export const championAttacks = (square, occupied) => knightAttacks(square).xor(rookAttacks(square, occupied));
+/** Gets squares attacked or defended by a princess */
+export const princessAttacks = (square, occupied) => bishopAttacks(square, occupied).xor(knightAttacks(square));
+/** Gets squares attacked or defended by an amazon */
+export const amazonAttacks = (square, occupied) => queenAttacks(square, occupied).xor(knightAttacks(square));
+/** Gets squares attacked or defended by a commoner */
+export const commonerAttacks = (square) => KING_ATTACKS[square];
+/** Gets squares attacked or defended by a painter */
+export const painterAttacks = (color, square) => PAWN_ATTACKS[color][square];
+/** Gets squares attacked or defended by a royal painter */
+export const royalpainterAttacks = (square) => KING_ATTACKS[square];
+/** Gets squares attacked or defended by a snare */
+export const snareAttacks = (color, square) => SNARE_ATTACKS[color][square];
+/** Gets squares attacked or defended by a snare */
+export const rollingsnareAttacks = (square) => ROLLINGSNARE_ATTACKS[square];
+/** Gets squares attacked or defended by a wizard */
+export const wizardAttacks = (square) => WIZARD_ATTACKS[square];
+/** Gets squares attacked or defended by an archer on `square`. */
+export const archerAttacks = (square, occupied) => {
+    let s = SquareSet.empty();
+    for (const d of ARCHER_DELTAS) {
+        // step 1: adjacent diagonal (always added)
+        const first = square + d;
+        if (0 <= first && first < 64 && Math.abs(squareFile(first) - squareFile(square)) === 1) {
+            s = s.with(first);
+            if (occupied.has(first)) {
+                // blocked at step 1 — nothing beyond
+                continue;
+            }
+        }
+        else {
+            // can't take step 1 in this direction (offboard/wrap) => skip direction
+            continue;
+        }
+        // steps 2..3: only add the first occupied square (if any), stop when we hit a blocker
+        for (let step = 2; step <= 3; step++) {
+            const to = square + d * step;
+            if (!(0 <= to && to < 64))
+                break;
+            // ensure file didn't wrap; for a diagonal move file delta must equal step
+            if (Math.abs(squareFile(to) - squareFile(square)) !== step)
+                break;
+            if (occupied.has(to)) {
+                // add the blocker (friend or enemy) — archer "attacks" it (can capture enemy)
+                s = s.with(to);
+                break; // can't shoot/attack past this blocker
+            }
+            // if empty — do not add it, but continue to potentially reach the next square
+        }
+    }
+    return s;
+};
+/**
+ * Gets squares attacked or defended by a `piece` on `square`, given
+ * `occupied` squares.
+ */
+export const attacks = (piece, square, occupied) => {
+    switch (piece.role) {
+        case 'pawn':
+            return pawnAttacks(piece.color, square);
+        case 'knight':
+            return knightAttacks(square);
+        case 'bishop':
+            return bishopAttacks(square, occupied);
+        case 'rook':
+            return rookAttacks(square, occupied);
+        case 'queen':
+            return queenAttacks(square, occupied);
+        case 'king':
+            return kingAttacks(square);
+        case 'champion':
+            return knightAttacks(square).xor(rookAttacks(square, occupied));
+        case 'princess':
+            return bishopAttacks(square, occupied).xor(knightAttacks(square));
+        case 'amazon':
+            return queenAttacks(square, occupied).xor(knightAttacks(square));
+        case 'commoner':
+            return commonerAttacks(square);
+        case 'painter':
+            return painterAttacks(piece.color, square);
+        case 'snare':
+            return snareAttacks(piece.color, square);
+        case 'wizard':
+            return wizardAttacks(square);
+        case 'archer':
+            return archerAttacks(square, occupied);
+        case 'royalpainter':
+            return royalpainterAttacks(square);
+        case 'rollingsnare':
+            return rollingsnareAttacks(square);
+    }
+};
+/**
+ * Gets all squares of the rank, file or diagonal with the two squares
+ * `a` and `b`, or an empty set if they are not aligned.
+ */
+export const ray = (a, b) => {
+    const other = SquareSet.fromSquare(b);
+    if (RANK_RANGE[a].intersects(other))
+        return RANK_RANGE[a].with(a);
+    if (ANTI_DIAG_RANGE[a].intersects(other))
+        return ANTI_DIAG_RANGE[a].with(a);
+    if (DIAG_RANGE[a].intersects(other))
+        return DIAG_RANGE[a].with(a);
+    if (FILE_RANGE[a].intersects(other))
+        return FILE_RANGE[a].with(a);
+    return SquareSet.empty();
+};
+/**
+ * Gets all squares between `a` and `b` (bounds not included), or an empty set
+ * if they are not on the same rank, file or diagonal.
+ */
+export const between = (a, b) => ray(a, b)
+    .intersect(SquareSet.full().shl64(a).xor(SquareSet.full().shl64(b)))
+    .withoutFirst();
+//# sourceMappingURL=attacks.js.map
