@@ -1,6 +1,6 @@
 import { Result } from '@badrap/result';
 import { attacks, between, bishopAttacks, kingAttacks, knightAttacks, pawnAttacks, queenAttacks, ray, rookAttacks, championAttacks, princessAttacks, amazonAttacks, commonerAttacks, painterAttacks, royalpainterAttacks, snareAttacks, wizardAttacks, archerAttacks, rollingsnareAttacks } from './attacks.js';
-import { FILE_RANGE, RANK_RANGE, DIAG_RANGE, ANTI_DIAG_RANGE, ARCHER_DELTAS } from "./attacks";
+import { FILE_RANGE, RANK_RANGE, DIAG_RANGE, ANTI_DIAG_RANGE, ARCHER_DELTAS } from "./attacks.js";
 import { Board, boardEquals } from './board.js';
 import { SquareSet } from './squareSet.js';
 import { CASTLING_SIDES, COLORS, isDrop } from './types.js';

@@ -15,7 +15,8 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "sourceMap": true,
-    "emitDeclarationOnly": false
+    "emitDeclarationOnly": false,
+    "moduleDetection": "force"
   },
   "include": ["src"],
   "exclude": ["src/**/*.test.ts", "node_modules"]

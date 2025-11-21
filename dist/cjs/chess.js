@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.isImpossibleCheck = exports.isStandardMaterial = exports.isStandardMaterialSide = exports.normalizeMove = exports.castlingSide = exports.equalsIgnoreMoves = exports.pseudoDests = exports.Chess = exports.Position = exports.Castles = exports.PositionError = exports.IllegalSetup = void 0;
 const result_1 = require("@badrap/result");
 const attacks_js_1 = require("./attacks.js");
-const attacks_1 = require("./attacks");
+const attacks_js_2 = require("./attacks.js");
 const board_js_1 = require("./board.js");
 const squareSet_js_1 = require("./squareSet.js");
 const types_js_1 = require("./types.js");
@@ -181,15 +181,15 @@ class Position {
             .union(this.board.amazon);
         const occ = this.board.occupied;
         // build the set of ray-squares from the king (ignoring occupancy)
-        const rookLines = attacks_1.FILE_RANGE[king].union(attacks_1.RANK_RANGE[king]);
-        const bishopLines = attacks_1.DIAG_RANGE[king].union(attacks_1.ANTI_DIAG_RANGE[king]);
+        const rookLines = attacks_js_2.FILE_RANGE[king].union(attacks_js_2.RANK_RANGE[king]);
+        const bishopLines = attacks_js_2.DIAG_RANGE[king].union(attacks_js_2.ANTI_DIAG_RANGE[king]);
         // candidate slider snipers ignoring occupancy
         const sliderSnipers = rookLikeSliders
             .intersect(rookLines)
             .union(bishopLikeSliders.intersect(bishopLines))
             .intersect(this.board[(0, util_js_1.opposite)(this.turn)]);
         let archerSnipers = squareSet_js_1.SquareSet.empty();
-        for (const d of attacks_1.ARCHER_DELTAS) {
+        for (const d of attacks_js_2.ARCHER_DELTAS) {
             for (let step = 2; step <= 3; step++) {
                 const sq = king + d * step;
                 // bounds check and file-wrap check

@@ -20,7 +20,7 @@ import {
   archerAttacks,
   rollingsnareAttacks
 } from './attacks.js';
-import { FILE_RANGE, RANK_RANGE, DIAG_RANGE, ANTI_DIAG_RANGE, ARCHER_DELTAS } from "./attacks";
+import { FILE_RANGE, RANK_RANGE, DIAG_RANGE, ANTI_DIAG_RANGE, ARCHER_DELTAS } from "./attacks.js";
 import { Board, boardEquals } from './board.js';
 import { Material, RemainingChecks, Setup } from './setup.js';
 import { SquareSet } from './squareSet.js';
