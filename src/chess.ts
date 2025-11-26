@@ -12,7 +12,7 @@ import {
   championAttacks,
   princessAttacks,
   amazonAttacks,
-  commonerAttacks,
+  mannAttacks,
   painterAttacks,
   royalpainterAttacks,
   snareAttacks,
@@ -62,7 +62,7 @@ const attacksTo = (square: Square, attacker: Color, board: Board, occupied: Squa
       .union(championAttacks(square, occupied).intersect(board.champion))
       .union(princessAttacks(square, occupied).intersect(board.princess))
       .union(amazonAttacks(square, occupied).intersect(board.amazon))
-      .union(commonerAttacks(square).intersect(board.commoner))
+      .union(mannAttacks(square).intersect(board.mann))
       .union(painterAttacks(opposite(attacker), square).intersect(board.painter))
       .union(wizardAttacks(square).intersect(board.wizard))
       .union(archerAttacks(square, occupied).intersect(board.archer))
@@ -370,7 +370,7 @@ ctx(): Context {
     else if (piece.role === 'champion') pseudo = knightAttacks(square).xor(rookAttacks(square, this.board.occupied));
     else if (piece.role === 'princess') pseudo = bishopAttacks(square, this.board.occupied).xor(knightAttacks(square));
     else if (piece.role === 'amazon') pseudo = queenAttacks(square, this.board.occupied).xor(knightAttacks(square));
-    else if (piece.role === 'commoner') pseudo = commonerAttacks(square);
+    else if (piece.role === 'mann') pseudo = mannAttacks(square);
     else if (piece.role === 'royalpainter') pseudo = royalpainterAttacks(square);
     else if (piece.role === 'snare') {
       pseudo = snareAttacks(piece.color, square);
@@ -470,7 +470,7 @@ hasInsufficientMaterial(color: Color): boolean {
   const canMate = this.board.champion
     .union(this.board.princess)
     .union(this.board.amazon)
-    .union(this.board.commoner)
+    .union(this.board.mann)
     .union(this.board.royalpainter)
     .union(this.board.wizard);
 

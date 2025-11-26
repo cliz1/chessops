@@ -35,7 +35,7 @@ class Board {
         this.champion = squareSet_js_1.SquareSet.empty();
         this.princess = squareSet_js_1.SquareSet.empty();
         this.amazon = squareSet_js_1.SquareSet.empty();
-        this.commoner = squareSet_js_1.SquareSet.empty();
+        this.mann = squareSet_js_1.SquareSet.empty();
         this.painter = squareSet_js_1.SquareSet.empty();
         this.snare = squareSet_js_1.SquareSet.empty();
         this.wizard = squareSet_js_1.SquareSet.empty();

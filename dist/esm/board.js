@@ -32,7 +32,7 @@ export class Board {
         this.champion = SquareSet.empty();
         this.princess = SquareSet.empty();
         this.amazon = SquareSet.empty();
-        this.commoner = SquareSet.empty();
+        this.mann = SquareSet.empty();
         this.painter = SquareSet.empty();
         this.snare = SquareSet.empty();
         this.wizard = SquareSet.empty();

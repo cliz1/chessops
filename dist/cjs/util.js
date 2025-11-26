@@ -34,7 +34,7 @@ const roleToChar = (role) => {
             return 'i';
         case 'amazon':
             return 'a';
-        case 'commoner':
+        case 'mann':
             return 'm';
         case 'painter':
             return 'y';
@@ -72,7 +72,7 @@ function charToRole(ch) {
         case 'a':
             return 'amazon';
         case 'm':
-            return 'commoner';
+            return 'mann';
         case 'y':
             return 'painter';
         case 's':

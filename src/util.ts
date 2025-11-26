@@ -44,7 +44,7 @@ export const roleToChar = (role: Role): LowerCaseRoleChar => {
       return 'i';
     case 'amazon':
       return 'a';
-    case 'commoner':
+    case 'mann':
       return 'm';
     case 'painter':
       return 'y';
@@ -84,7 +84,7 @@ export function charToRole(ch: string): Role | undefined {
     case 'a':
       return 'amazon';
     case 'm':
-      return 'commoner';
+      return 'mann';
     case 'y':
       return 'painter';
     case 's':

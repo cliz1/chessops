@@ -28,7 +28,7 @@ const attacksTo = (square, attacker, board, occupied) => board[attacker].interse
     .union((0, attacks_js_1.championAttacks)(square, occupied).intersect(board.champion))
     .union((0, attacks_js_1.princessAttacks)(square, occupied).intersect(board.princess))
     .union((0, attacks_js_1.amazonAttacks)(square, occupied).intersect(board.amazon))
-    .union((0, attacks_js_1.commonerAttacks)(square).intersect(board.commoner))
+    .union((0, attacks_js_1.mannAttacks)(square).intersect(board.mann))
     .union((0, attacks_js_1.painterAttacks)((0, util_js_1.opposite)(attacker), square).intersect(board.painter))
     .union((0, attacks_js_1.wizardAttacks)(square).intersect(board.wizard))
     .union((0, attacks_js_1.archerAttacks)(square, occupied).intersect(board.archer))
@@ -304,8 +304,8 @@ class Position {
             pseudo = (0, attacks_js_1.bishopAttacks)(square, this.board.occupied).xor((0, attacks_js_1.knightAttacks)(square));
         else if (piece.role === 'amazon')
             pseudo = (0, attacks_js_1.queenAttacks)(square, this.board.occupied).xor((0, attacks_js_1.knightAttacks)(square));
-        else if (piece.role === 'commoner')
-            pseudo = (0, attacks_js_1.commonerAttacks)(square);
+        else if (piece.role === 'mann')
+            pseudo = (0, attacks_js_1.mannAttacks)(square);
         else if (piece.role === 'royalpainter')
             pseudo = (0, attacks_js_1.royalpainterAttacks)(square);
         else if (piece.role === 'snare') {
@@ -404,7 +404,7 @@ class Position {
         const canMate = this.board.champion
             .union(this.board.princess)
             .union(this.board.amazon)
-            .union(this.board.commoner)
+            .union(this.board.mann)
             .union(this.board.royalpainter)
             .union(this.board.wizard);
         const nonMating = this.board.snare.union(this.board.archer).union(this.board.rollingsnare);

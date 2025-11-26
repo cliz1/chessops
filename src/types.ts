@@ -32,7 +32,7 @@ export type ByColor<T> = {
   [color in Color]: T;
 };
 
-export const ROLES = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king', 'champion', 'princess', 'amazon', 'commoner', 'painter', 'snare', 'wizard', 'archer', 'royalpainter', 'rollingsnare'] as const;
+export const ROLES = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king', 'champion', 'princess', 'amazon', 'mann', 'painter', 'snare', 'wizard', 'archer', 'royalpainter', 'rollingsnare'] as const;
 
 export type Role = (typeof ROLES)[number];
 

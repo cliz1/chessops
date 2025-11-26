@@ -19,7 +19,7 @@ export type Color = (typeof COLORS)[number];
 export type ByColor<T> = {
     [color in Color]: T;
 };
-export declare const ROLES: readonly ["pawn", "knight", "bishop", "rook", "queen", "king", "champion", "princess", "amazon", "commoner", "painter", "snare", "wizard", "archer", "royalpainter", "rollingsnare"];
+export declare const ROLES: readonly ["pawn", "knight", "bishop", "rook", "queen", "king", "champion", "princess", "amazon", "mann", "painter", "snare", "wizard", "archer", "royalpainter", "rollingsnare"];
 export type Role = (typeof ROLES)[number];
 /**
  * Indexable by `pawn`, `knight`, `bishop`, `rook`, `queen`, and `king`.

@@ -1,5 +1,5 @@
 import { Result } from '@badrap/result';
-import { attacks, between, bishopAttacks, kingAttacks, knightAttacks, pawnAttacks, queenAttacks, ray, rookAttacks, championAttacks, princessAttacks, amazonAttacks, commonerAttacks, painterAttacks, royalpainterAttacks, snareAttacks, wizardAttacks, archerAttacks, rollingsnareAttacks } from './attacks.js';
+import { attacks, between, bishopAttacks, kingAttacks, knightAttacks, pawnAttacks, queenAttacks, ray, rookAttacks, championAttacks, princessAttacks, amazonAttacks, mannAttacks, painterAttacks, royalpainterAttacks, snareAttacks, wizardAttacks, archerAttacks, rollingsnareAttacks } from './attacks.js';
 import { FILE_RANGE, RANK_RANGE, DIAG_RANGE, ANTI_DIAG_RANGE, ARCHER_DELTAS } from "./attacks.js";
 import { Board, boardEquals } from './board.js';
 import { SquareSet } from './squareSet.js';
@@ -24,7 +24,7 @@ const attacksTo = (square, attacker, board, occupied) => board[attacker].interse
     .union(championAttacks(square, occupied).intersect(board.champion))
     .union(princessAttacks(square, occupied).intersect(board.princess))
     .union(amazonAttacks(square, occupied).intersect(board.amazon))
-    .union(commonerAttacks(square).intersect(board.commoner))
+    .union(mannAttacks(square).intersect(board.mann))
     .union(painterAttacks(opposite(attacker), square).intersect(board.painter))
     .union(wizardAttacks(square).intersect(board.wizard))
     .union(archerAttacks(square, occupied).intersect(board.archer))
@@ -299,8 +299,8 @@ export class Position {
             pseudo = bishopAttacks(square, this.board.occupied).xor(knightAttacks(square));
         else if (piece.role === 'amazon')
             pseudo = queenAttacks(square, this.board.occupied).xor(knightAttacks(square));
-        else if (piece.role === 'commoner')
-            pseudo = commonerAttacks(square);
+        else if (piece.role === 'mann')
+            pseudo = mannAttacks(square);
         else if (piece.role === 'royalpainter')
             pseudo = royalpainterAttacks(square);
         else if (piece.role === 'snare') {
@@ -399,7 +399,7 @@ export class Position {
         const canMate = this.board.champion
             .union(this.board.princess)
             .union(this.board.amazon)
-            .union(this.board.commoner)
+            .union(this.board.mann)
             .union(this.board.royalpainter)
             .union(this.board.wizard);
         const nonMating = this.board.snare.union(this.board.archer).union(this.board.rollingsnare);

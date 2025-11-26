@@ -12,7 +12,7 @@ export class MaterialSide implements ByRole<number> {
   champion: number;
   princess: number;
   amazon: number;
-  commoner: number;
+  mann: number;
   painter: number;
   snare: number;
   wizard: number;

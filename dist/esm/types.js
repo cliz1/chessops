@@ -2,7 +2,7 @@ export const FILE_NAMES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 export const RANK_NAMES = ['1', '2', '3', '4', '5', '6', '7', '8'];
 export const ROLE_CHARS = ['q', 'n', 'r', 'b', 'p', 'k', 'c', 'i', 'a', 'm', 'y', 's', 'w', 'x', 'o', 'l'];
 export const COLORS = ['white', 'black'];
-export const ROLES = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king', 'champion', 'princess', 'amazon', 'commoner', 'painter', 'snare', 'wizard', 'archer', 'royalpainter', 'rollingsnare'];
+export const ROLES = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king', 'champion', 'princess', 'amazon', 'mann', 'painter', 'snare', 'wizard', 'archer', 'royalpainter', 'rollingsnare'];
 export const CASTLING_SIDES = ['a', 'h'];
 export const isDrop = (v) => 'role' in v;
 export const isNormal = (v) => 'from' in v;

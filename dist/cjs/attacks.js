@@ -13,7 +13,7 @@
  * @packageDocumentation
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.between = exports.ray = exports.attacks = exports.archerAttacks = exports.wizardAttacks = exports.rollingsnareAttacks = exports.snareAttacks = exports.royalpainterAttacks = exports.painterAttacks = exports.commonerAttacks = exports.amazonAttacks = exports.princessAttacks = exports.championAttacks = exports.queenAttacks = exports.rookAttacks = exports.bishopAttacks = exports.ANTI_DIAG_RANGE = exports.DIAG_RANGE = exports.RANK_RANGE = exports.FILE_RANGE = exports.pawnAttacks = exports.knightAttacks = exports.kingAttacks = exports.ARCHER_DELTAS = void 0;
+exports.between = exports.ray = exports.attacks = exports.archerAttacks = exports.wizardAttacks = exports.rollingsnareAttacks = exports.snareAttacks = exports.royalpainterAttacks = exports.painterAttacks = exports.mannAttacks = exports.amazonAttacks = exports.princessAttacks = exports.championAttacks = exports.queenAttacks = exports.rookAttacks = exports.bishopAttacks = exports.ANTI_DIAG_RANGE = exports.DIAG_RANGE = exports.RANK_RANGE = exports.FILE_RANGE = exports.pawnAttacks = exports.knightAttacks = exports.kingAttacks = exports.ARCHER_DELTAS = void 0;
 const squareSet_js_1 = require("./squareSet.js");
 const util_js_1 = require("./util.js");
 const computeRange = (square, deltas) => {
@@ -157,9 +157,9 @@ exports.princessAttacks = princessAttacks;
 /** Gets squares attacked or defended by an amazon */
 const amazonAttacks = (square, occupied) => (0, exports.queenAttacks)(square, occupied).xor((0, exports.knightAttacks)(square));
 exports.amazonAttacks = amazonAttacks;
-/** Gets squares attacked or defended by a commoner */
-const commonerAttacks = (square) => KING_ATTACKS[square];
-exports.commonerAttacks = commonerAttacks;
+/** Gets squares attacked or defended by a mann */
+const mannAttacks = (square) => KING_ATTACKS[square];
+exports.mannAttacks = mannAttacks;
 /** Gets squares attacked or defended by a painter */
 const painterAttacks = (color, square) => PAWN_ATTACKS[color][square];
 exports.painterAttacks = painterAttacks;
@@ -235,8 +235,8 @@ const attacks = (piece, square, occupied) => {
             return (0, exports.bishopAttacks)(square, occupied).xor((0, exports.knightAttacks)(square));
         case 'amazon':
             return (0, exports.queenAttacks)(square, occupied).xor((0, exports.knightAttacks)(square));
-        case 'commoner':
-            return (0, exports.commonerAttacks)(square);
+        case 'mann':
+            return (0, exports.mannAttacks)(square);
         case 'painter':
             return (0, exports.painterAttacks)(piece.color, square);
         case 'snare':

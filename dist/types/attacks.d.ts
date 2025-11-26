@@ -52,8 +52,8 @@ export declare const championAttacks: (square: Square, occupied: SquareSet) => S
 export declare const princessAttacks: (square: Square, occupied: SquareSet) => SquareSet;
 /** Gets squares attacked or defended by an amazon */
 export declare const amazonAttacks: (square: Square, occupied: SquareSet) => SquareSet;
-/** Gets squares attacked or defended by a commoner */
-export declare const commonerAttacks: (square: Square) => SquareSet;
+/** Gets squares attacked or defended by a mann */
+export declare const mannAttacks: (square: Square) => SquareSet;
 /** Gets squares attacked or defended by a painter */
 export declare const painterAttacks: (color: Color, square: Square) => SquareSet;
 /** Gets squares attacked or defended by a royal painter */

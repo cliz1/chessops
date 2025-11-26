@@ -29,7 +29,7 @@ export declare class Board implements Iterable<[Square, Piece]>, ByRole<SquareSe
     champion: SquareSet;
     princess: SquareSet;
     amazon: SquareSet;
-    commoner: SquareSet;
+    mann: SquareSet;
     painter: SquareSet;
     snare: SquareSet;
     wizard: SquareSet;
