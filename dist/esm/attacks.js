@@ -150,7 +150,7 @@ export const mannAttacks = (square) => KING_ATTACKS[square];
 /** Gets squares attacked or defended by a painter */
 export const painterAttacks = (color, square) => PAWN_ATTACKS[color][square];
 /** Gets squares attacked or defended by a royal painter */
-export const royalpainterAttacks = (square) => KING_ATTACKS[square];
+export const royalpainterAttacks = (square, occupied) => bishopAttacks(square, occupied).xor(rookAttacks(square, occupied));
 /** Gets squares attacked or defended by a snare */
 export const snareAttacks = (color, square) => SNARE_ATTACKS[color][square];
 /** Gets squares attacked or defended by a snare */
@@ -227,7 +227,7 @@ export const attacks = (piece, square, occupied) => {
         case 'archer':
             return archerAttacks(square, occupied);
         case 'royalpainter':
-            return royalpainterAttacks(square);
+            return royalpainterAttacks(square, occupied);
         case 'rollingsnare':
             return rollingsnareAttacks(square);
     }

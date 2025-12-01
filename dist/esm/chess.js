@@ -28,7 +28,7 @@ const attacksTo = (square, attacker, board, occupied) => board[attacker].interse
     .union(painterAttacks(opposite(attacker), square).intersect(board.painter))
     .union(wizardAttacks(square).intersect(board.wizard))
     .union(archerAttacks(square, occupied).intersect(board.archer))
-    .union(royalpainterAttacks(square).intersect(board.royalpainter)));
+    .union(royalpainterAttacks(square, occupied).intersect(board.royalpainter)));
 export class Castles {
     constructor() { }
     static default() {
@@ -302,7 +302,7 @@ export class Position {
         else if (piece.role === 'mann')
             pseudo = mannAttacks(square);
         else if (piece.role === 'royalpainter')
-            pseudo = royalpainterAttacks(square);
+            pseudo = royalpainterAttacks(square, this.board.occupied);
         else if (piece.role === 'snare') {
             pseudo = snareAttacks(piece.color, square);
             // Snare cannot capture
