@@ -237,11 +237,13 @@ ctx(): Context {
   }
   const rookLikeSliders = this.board.rooksAndQueens()
     .union(this.board.champion) 
-    .union(this.board.amazon); 
+    .union(this.board.amazon)
+    .union(this.board.royalpainter); 
 
   const bishopLikeSliders = this.board.bishopsAndQueens()
     .union(this.board.princess) 
-    .union(this.board.amazon); 
+    .union(this.board.amazon)
+    .union(this.board.royalpainter); 
   const occ = this.board.occupied;
 
   // build the set of ray-squares from the king (ignoring occupancy)
