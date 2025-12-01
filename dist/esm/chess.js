@@ -378,6 +378,15 @@ export class Position {
                     pseudo = pseudo.intersect(ray(square, ctx.king));
                 }
             }
+            if (piece.role === 'wizard' && defined(ctx.king)) {
+                let allowed = SquareSet.empty();
+                for (const to of pseudo) {
+                    // simulateWizardMoveIsLegal must simulate the swap and re-evaluate king safety
+                    if (this.simulateWizardMoveIsLegal(square, to, ctx))
+                        allowed = allowed.with(to);
+                }
+                pseudo = allowed;
+            }
         }
         if (legal)
             pseudo = pseudo.union(legal);
