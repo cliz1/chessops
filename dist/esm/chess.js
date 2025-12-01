@@ -546,168 +546,208 @@ export class Position {
     }
     play(move) {
         const turn = this.turn;
-        const epSquare = this.epSquare;
+        const prevEp = this.epSquare;
         const castling = castlingSide(this, move);
+        // Clear ephemeral state for this turn; will be set again if a double-step occurs
         this.epSquare = undefined;
+        // Move clocks and turn flip (preserve original ordering)
         this.halfmoves += 1;
         if (turn === 'black')
             this.fullmoves += 1;
         this.turn = opposite(turn);
         if (isDrop(move)) {
+            // dropping a piece from pocket
             this.board.set(move.to, { role: move.role, color: turn });
             if (this.pockets)
                 this.pockets[turn][move.role]--;
             if (move.role === 'pawn')
                 this.halfmoves = 0;
+            return;
         }
-        else {
-            const piece = this.board.take(move.from);
-            if (!piece)
-                return;
-            let epCapture;
-            if (piece.role === 'pawn') {
-                this.halfmoves = 0;
-                if (move.to === epSquare) {
-                    epCapture = this.board.take(move.to + (turn === 'white' ? -8 : 8));
-                }
-                const delta = move.from - move.to;
-                if (Math.abs(delta) === 16 && 8 <= move.from && move.from <= 55) {
-                    this.epSquare = (move.from + move.to) >> 1;
-                }
-                if (move.promotion) {
-                    piece.role = move.promotion;
-                    piece.promoted = !!this.pockets;
-                }
+        // Non-drop move
+        const piece = this.board.take(move.from);
+        if (!piece)
+            return;
+        // epCapture holds a piece already removed by en-passant (pawn capturing)
+        let epCapture;
+        // --- Pawn behavior (including normal EP capture when move.to === prevEp) ---
+        if (piece.role === 'pawn') {
+            // reset fifty-move clock
+            this.halfmoves = 0;
+            // en-passant capture: the captured pawn is behind the ep square
+            if (move.to === prevEp) {
+                const capturedSquare = prevEp + (turn === 'white' ? -8 : 8);
+                epCapture = this.board.take(capturedSquare);
             }
-            else if (piece.role === 'painter' || piece.role === 'royalpainter') {
-                // Reset halfmove clock (like a capture)
-                this.halfmoves = 0;
-                // painter's special en passant
-                if (move.to === epSquare && piece.role === 'painter') {
-                    const wouldBeCapturedSquare = move.to + (turn === 'white' ? -8 : 8);
-                    const target = this.board.get(wouldBeCapturedSquare);
-                    if (defined(target) && target.role === 'pawn' && target.color !== piece.color) {
-                        // Save undo info (original target state)
-                        const prevTarget = { role: target.role, color: target.color, promoted: target.promoted };
-                        // Paint the pawn
-                        const paintedPawn = { role: target.role, color: piece.color, promoted: target.promoted };
-                        this.board.set(wouldBeCapturedSquare, paintedPawn);
-                        // Painter stays on its original square 
-                        this.board.set(move.from, piece);
-                        this.epSquare = undefined;
-                        return;
-                    }
-                }
-                // Normal painter behavior (painting on destination if enemy piece exists)
-                const target = this.board.get(move.to);
-                if (defined(target) && target.color !== piece.color) {
-                    const prevTarget = { role: target.role, color: target.color, promoted: target.promoted };
-                    const paintedPiece = { role: target.role, color: piece.color, promoted: target.promoted };
-                    this.board.set(move.to, paintedPiece);
-                    // Painter does NOT move
+            // detect double-step to set epSquare for opponent
+            const delta = move.from - move.to;
+            if (Math.abs(delta) === 16 && 8 <= move.from && move.from <= 55) {
+                this.epSquare = (move.from + move.to) >> 1;
+            }
+            // promotion handling
+            if (move.promotion) {
+                piece.role = move.promotion;
+                piece.promoted = !!this.pockets;
+            }
+            // perform normal pawn move (this will also handle normal capture)
+            const capture = this.board.set(move.to, piece) || epCapture;
+            if (capture)
+                this.playCaptureAt(move.to, capture);
+            // done
+            if (!castling)
+                return;
+        }
+        // --- Painter behavior (including painting and painter-EP painting) ---
+        else if (piece.role === 'painter' || piece.role === 'royalpainter') {
+            // painting is considered a capture-like action -> reset halfmove clock
+            this.halfmoves = 0;
+            // Painter: special en-passant "paint" of an enemy double-pusher
+            // Note: painters do NOT move onto the square they paint; they stay on move.from.
+            if (move.to === prevEp && piece.role === 'painter') {
+                const victimSquare = prevEp + (turn === 'white' ? -8 : 8);
+                const victim = this.board.get(victimSquare);
+                if (defined(victim) && (victim.role === 'pawn' || victim.role === 'painter') && victim.color !== piece.color) {
+                    // Paint the victim (replace with same role but with painter's color)
+                    const painted = { role: victim.role, color: piece.color, promoted: victim.promoted };
+                    this.board.set(victimSquare, painted);
+                    // Painter stays on its origin square (move.from)
                     this.board.set(move.from, piece);
-                    if (prevTarget.role === 'rook') {
-                        this.castles.discardRook(move.to);
-                    }
+                    // epSquare consumed
+                    this.epSquare = undefined;
                     return;
                 }
-                else {
-                    // No piece to paint: painter moves normally (like a pawn)
-                    if (move.promotion) {
-                        piece.role = move.promotion;
-                        piece.promoted = !!this.pockets;
-                    }
-                    const capture = this.board.set(move.to, piece) || undefined;
-                    if (capture)
-                        this.playCaptureAt(move.to, capture);
-                }
             }
-            else if (piece.role === 'rook') {
-                this.castles.discardRook(move.from);
-            }
-            else if (piece.role === 'king') {
-                if (castling) {
-                    const rookFrom = this.castles.rook[turn][castling];
-                    if (defined(rookFrom)) {
-                        const rook = this.board.take(rookFrom);
-                        this.board.set(kingCastlesTo(turn, castling), piece);
-                        if (rook)
-                            this.board.set(rookCastlesTo(turn, castling), rook);
-                    }
-                }
-                this.castles.discardColor(turn);
-            }
-            else if (piece.role === 'snare' || piece.role === 'rollingsnare') {
-                if (move.promotion) {
-                    piece.role = move.promotion;
-                    piece.promoted = !!this.pockets;
-                }
-                const destBefore = this.board.get(move.to);
-                if (defined(destBefore)) {
-                    // snare cannot capture
-                    return;
-                }
-                this.board.set(move.to, piece);
-                // being used by the PGN writer or UI after play().
-                if (move.capture)
-                    move.capture = false;
-                // Return early to avoid generic capture-handlers
+            // Normal painting capture: if destination has an enemy piece, paint it and do NOT move painter.
+            const dest = this.board.get(move.to);
+            if (defined(dest) && dest.color !== piece.color) {
+                // Paint the destination piece
+                const painted = { role: dest.role, color: piece.color, promoted: dest.promoted };
+                this.board.set(move.to, painted);
+                // Painter stays where it started
+                this.board.set(move.from, piece);
+                // If we painted a rook, update castling rights
+                if (dest.role === 'rook')
+                    this.castles.discardRook(move.to);
                 return;
             }
-            else if (piece.role === 'wizard') {
-                const destBefore = this.board.get(move.to);
-                // 1) normal move
-                if (!defined(destBefore)) {
-                    this.board.set(move.to, piece);
-                    // from already cleared by board.take
-                    return;
-                }
-                // 2) normal capture
-                if (destBefore.color !== turn) {
-                    const capture = this.board.set(move.to, piece) || undefined;
-                    if (capture)
-                        this.playCaptureAt(move.to, capture);
-                    return;
-                }
-                // 3) Destination occupied by friendly -> swap
-                if (destBefore.color === turn) {
-                    const swappedPiece = { role: destBefore.role, color: destBefore.color, promoted: destBefore.promoted, moved: true };
-                    if (swappedPiece.role === 'pawn' &&
-                        SquareSet.backranks().has(move.from) &&
-                        move.promotion) {
-                        swappedPiece.role = move.promotion;
-                        swappedPiece.promoted = !!this.pockets;
-                    }
-                    // Move the wizard to the target square.
-                    this.board.set(move.to, piece);
-                    // Put the swapped piece at the wizard's origin.
-                    this.board.set(move.from, swappedPiece);
-                    // discard castling rights if needed
-                    if (swappedPiece.role === 'rook') {
-                        this.castles.discardRook(move.to);
-                    }
-                    return;
-                }
+            // Otherwise: painter moves like a pawn (may be a double-step)
+            if (move.promotion) {
+                piece.role = move.promotion;
+                piece.promoted = !!this.pockets;
             }
-            else if (piece.role === 'archer') {
-                const from = move.from;
-                const to = move.to;
-                const fileDelta = Math.abs(squareFile(to) - squareFile(from));
-                const rankDelta = Math.abs(squareRank(to) - squareRank(from));
-                const maxDelta = Math.max(fileDelta, rankDelta);
-                if (maxDelta > 1 && (fileDelta === rankDelta)) {
-                    const captured = this.board.take(to);
-                    this.board.set(from, piece);
-                    this.halfmoves = 0;
-                    return;
-                }
+            // compute delta BEFORE setting board; detect double-step to set epSquare
+            const pDelta = move.from - move.to;
+            if (Math.abs(pDelta) === 16 && 8 <= move.from && move.from <= 55) {
+                this.epSquare = (move.from + move.to) >> 1;
             }
-            if (!castling) {
-                const capture = this.board.set(move.to, piece) || epCapture;
+            // actually move painter (no painting occurred)
+            const capture = this.board.set(move.to, piece) || undefined;
+            if (capture)
+                this.playCaptureAt(move.to, capture);
+            return;
+        }
+        // --- Rook: discard its rook-castle origin file if moved ---
+        else if (piece.role === 'rook') {
+            this.castles.discardRook(move.from);
+        }
+        // --- King: handle castling ---
+        else if (piece.role === 'king') {
+            if (castling) {
+                const rookFrom = this.castles.rook[turn][castling];
+                if (defined(rookFrom)) {
+                    const rook = this.board.take(rookFrom);
+                    // move king to castled square
+                    this.board.set(kingCastlesTo(turn, castling), piece);
+                    if (rook)
+                        this.board.set(rookCastlesTo(turn, castling), rook);
+                }
+                // discard color's castling rights
+                this.castles.discardColor(turn);
+                return;
+            }
+            this.castles.discardColor(turn);
+        }
+        // --- Snare / Rollingsnare: cannot capture; move only to empty squares ---
+        else if (piece.role === 'snare' || piece.role === 'rollingsnare') {
+            if (move.promotion) {
+                piece.role = move.promotion;
+                piece.promoted = !!this.pockets;
+            }
+            const destBefore = this.board.get(move.to);
+            if (defined(destBefore)) {
+                // snare cannot capture — do nothing
+                return;
+            }
+            this.board.set(move.to, piece);
+            // PGN/UI: if a capture flag existed, clear it (we didn't capture)
+            if (move.capture)
+                move.capture = false;
+            return;
+        }
+        // --- Wizard: swaps with friendly piece, normal capture, or normal move ---
+        else if (piece.role === 'wizard') {
+            const destBefore = this.board.get(move.to);
+            // 1) normal empty destination -> move
+            if (!defined(destBefore)) {
+                this.board.set(move.to, piece);
+                return;
+            }
+            // 2) capture enemy -> normal capture
+            if (destBefore.color !== turn) {
+                const capture = this.board.set(move.to, piece) || undefined;
                 if (capture)
                     this.playCaptureAt(move.to, capture);
+                return;
+            }
+            // 3) destination occupied by friendly -> swap (wizard swaps places)
+            if (destBefore.color === turn) {
+                const swappedPiece = {
+                    role: destBefore.role,
+                    color: destBefore.color,
+                    promoted: destBefore.promoted,
+                    moved: true,
+                };
+                // allow promotion-as-swap for pawns if needed
+                if (swappedPiece.role === 'pawn' &&
+                    SquareSet.backranks().has(move.from) &&
+                    move.promotion) {
+                    swappedPiece.role = move.promotion;
+                    swappedPiece.promoted = !!this.pockets;
+                }
+                // perform swap
+                this.board.set(move.to, piece); // wizard -> destination
+                this.board.set(move.from, swappedPiece); // swapped piece -> wizard origin
+                // discard rook castling rights if the swapped piece was a rook
+                if (swappedPiece.role === 'rook')
+                    this.castles.discardRook(move.to);
+                return;
             }
         }
+        // --- Archer special-case: ranged "hit" that leaves archer in place if long-range diagonal move ---
+        else if (piece.role === 'archer') {
+            const from = move.from;
+            const to = move.to;
+            const fileDelta = Math.abs(squareFile(to) - squareFile(from));
+            const rankDelta = Math.abs(squareRank(to) - squareRank(from));
+            const maxDelta = Math.max(fileDelta, rankDelta);
+            // If it's a long-range diagonal (>1 and diagonal), archer hits but stays
+            if (maxDelta > 1 && fileDelta === rankDelta) {
+                const captured = this.board.take(to);
+                // put the archer back on its original square
+                this.board.set(from, piece);
+                this.halfmoves = 0;
+                if (captured)
+                    this.playCaptureAt(to, captured);
+                return;
+            }
+        }
+        // Generic case for remaining piece types: move normally (including handling epCapture set earlier)
+        if (!castling) {
+            const capture = this.board.set(move.to, piece) || epCapture;
+            if (capture)
+                this.playCaptureAt(move.to, capture);
+        }
+        // update remainingChecks if used by UI/conditions
         if (this.remainingChecks) {
             if (this.isCheck())
                 this.remainingChecks[turn] = Math.max(this.remainingChecks[turn] - 1, 0);
@@ -799,7 +839,13 @@ const validEpSquare = (pos, square) => {
     if (pos.board.occupied.has(square + forward))
         return;
     const pawn = square - forward;
-    if (!pos.board.pawn.has(pawn) || !pos.board[opposite(pos.turn)].has(pawn))
+    const target = pos.board.get(pawn);
+    // Must be double-stepping pawn *or painter* of the opposite color
+    if (!defined(target))
+        return;
+    if (target.color !== opposite(pos.turn))
+        return;
+    if (!(target.role === 'pawn' || target.role === 'painter'))
         return;
     return square;
 };
@@ -807,8 +853,9 @@ const legalEpSquare = (pos) => {
     if (!defined(pos.epSquare))
         return;
     const ctx = pos.ctx();
-    const ourPawns = pos.board.pieces(pos.turn, 'pawn');
-    const candidates = ourPawns.intersect(pawnAttacks(opposite(pos.turn), pos.epSquare));
+    const ourEPers = pos.board.pieces(pos.turn, 'pawn')
+        .union(pos.board.pieces(pos.turn, 'painter')); // painters move like pawns
+    const candidates = ourEPers.intersect(pawnAttacks(opposite(pos.turn), pos.epSquare));
     for (const candidate of candidates) {
         if (pos.dests(candidate, ctx).has(pos.epSquare))
             return pos.epSquare;
@@ -824,6 +871,9 @@ const canCaptureEp = (pos, pawnFrom, ctx) => {
         return true;
     const delta = pos.turn === 'white' ? 8 : -8;
     const captured = pos.epSquare - delta;
+    const victim = pos.board.get(captured);
+    if (!victim || !(victim.role === 'pawn' || victim.role === 'painter'))
+        return false;
     return pos
         .kingAttackers(ctx.king, opposite(pos.turn), pos.board.occupied.toggle(pawnFrom).toggle(captured).with(pos.epSquare))
         .without(captured)
