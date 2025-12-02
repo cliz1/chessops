@@ -64,19 +64,21 @@ const SNARE_ATTACKS = {
 export const ARCHER_DELTAS = [7, 9, -7, -9];
 
 const ORTHOGONAL_DELTAS = [8, -8, 1, -1];
+const DIAGONAL_DELTAS = [9, 7, -7, -9];
+
+const WIZARD_DELTAS = [...ORTHOGONAL_DELTAS, ...DIAGONAL_DELTAS];
 
 const WIZARD_ATTACKS = tabulate(sq => {
-  // Start with empty
   let s = SquareSet.empty();
 
-  // For each orthogonal direction, add 1-step and (if legal) 2-step
-  for (const d of ORTHOGONAL_DELTAS) {
-    // first step(s) from sq in direction d
+  // For each direction (orthogonal + diagonal), add 1-step and 2-step attacks
+  for (const d of WIZARD_DELTAS) {
+    // First step from sq
     const firstStepSet = singleStepTargets(sq, [d]);
     for (const first of firstStepSet) {
       s = s.with(first);
 
-      // second step: singleStepTargets applied to first in the same direction
+      // Second step from that first-step square
       const secondStepSet = singleStepTargets(first, [d]);
       for (const second of secondStepSet) {
         s = s.with(second);

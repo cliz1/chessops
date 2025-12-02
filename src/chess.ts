@@ -408,18 +408,41 @@ ctx(): Context {
 
       // In check
       if (ctx.checkers.nonEmpty()) {
-        if (piece.role === 'wizard'){
+        if (piece.role === 'wizard') {
           // allow wizard destinations that after simulation leave king safe
           let allowed = SquareSet.empty();
           for (const to of pseudo) {
             if (this.simulateWizardMoveIsLegal(square, to, ctx)) allowed = allowed.with(to);
           }
           pseudo = allowed;
-        }
-        else{
+        } else {
           const checker = ctx.checkers.singleSquare();
           if (!defined(checker)) return SquareSet.empty();
-          pseudo = pseudo.intersect(between(checker, ctx.king).with(checker));
+
+          // If the checking piece is a sliding/sniper type then blocking is allowed.
+          // Otherwise (leaper like knight/wizard/mann etc.) only captures of the checker
+          // are legal (i.e. you cannot "block" a leaper).
+          const checkerPiece = this.board.get(checker);
+          if (!defined(checkerPiece)) return SquareSet.empty();
+
+          const role = checkerPiece.role;
+          const canBeBlocked = (
+            role === 'rook' ||
+            role === 'queen' ||
+            role === 'bishop' ||
+            role === 'champion' ||     // contains rook-like sliding part
+            role === 'princess' ||     // contains bishop-like sliding part
+            role === 'amazon' ||       // queen-like sliding part
+            role === 'royalpainter' || // treated as sliding elsewhere
+            role === 'archer'          // archer acted as a sniper in ctx()
+          );
+
+          if (canBeBlocked) {
+            pseudo = pseudo.intersect(between(checker, ctx.king).with(checker));
+          } else {
+            // leaper / non-blockable: only allow moves that capture the checker
+            pseudo = pseudo.intersect(SquareSet.fromSquare(checker));
+          }
         }
       }
 

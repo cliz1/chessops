@@ -355,7 +355,29 @@ class Position {
                     const checker = ctx.checkers.singleSquare();
                     if (!(0, util_js_1.defined)(checker))
                         return squareSet_js_1.SquareSet.empty();
-                    pseudo = pseudo.intersect((0, attacks_js_1.between)(checker, ctx.king).with(checker));
+                    // If the checking piece is a sliding/sniper type then blocking is allowed.
+                    // Otherwise (leaper like knight/wizard/mann etc.) only captures of the checker
+                    // are legal (i.e. you cannot "block" a leaper).
+                    const checkerPiece = this.board.get(checker);
+                    if (!(0, util_js_1.defined)(checkerPiece))
+                        return squareSet_js_1.SquareSet.empty();
+                    const role = checkerPiece.role;
+                    const canBeBlocked = (role === 'rook' ||
+                        role === 'queen' ||
+                        role === 'bishop' ||
+                        role === 'champion' || // contains rook-like sliding part
+                        role === 'princess' || // contains bishop-like sliding part
+                        role === 'amazon' || // queen-like sliding part
+                        role === 'royalpainter' || // treated as sliding elsewhere
+                        role === 'archer' // archer acted as a sniper in ctx()
+                    );
+                    if (canBeBlocked) {
+                        pseudo = pseudo.intersect((0, attacks_js_1.between)(checker, ctx.king).with(checker));
+                    }
+                    else {
+                        // leaper / non-blockable: only allow moves that capture the checker
+                        pseudo = pseudo.intersect(squareSet_js_1.SquareSet.fromSquare(checker));
+                    }
                 }
             }
             // Pinned
