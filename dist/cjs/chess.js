@@ -241,9 +241,10 @@ class Position {
         if (this.kingAttackers(otherKing, this.turn, this.board.occupied).nonEmpty()) {
             return result_1.Result.err(new PositionError(IllegalSetup.OppositeCheck));
         }
-        if (squareSet_js_1.SquareSet.backranks().intersects(this.board.pawn)) {
-            return result_1.Result.err(new PositionError(IllegalSetup.PawnsOnBackrank));
-        }
+        // allow pawns on back rank, since a wizard can teleport them there. 
+        /*     if (SquareSet.backranks().intersects(this.board.pawn)) {
+              return Result.err(new PositionError(IllegalSetup.PawnsOnBackrank));
+            } */
         return result_1.Result.ok(undefined);
     }
     dropDests(_ctx) {

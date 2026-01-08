@@ -310,9 +310,12 @@ ctx(): Context {
       return Result.err(new PositionError(IllegalSetup.OppositeCheck));
     }
 
-    if (SquareSet.backranks().intersects(this.board.pawn)) {
+    // allow pawns on back rank, since a wizard can teleport them there. 
+
+/*     if (SquareSet.backranks().intersects(this.board.pawn)) {
       return Result.err(new PositionError(IllegalSetup.PawnsOnBackrank));
-    }
+    } */
+
 
     return Result.ok(undefined);
   }
@@ -592,10 +595,12 @@ isLegal(move: Move, ctx?: Context): boolean {
 
     let willRequirePromotion = false;
 
+    const fromRank = Math.floor(move.from / 8); 
+
     if (fromIsPawnLike) {
       // a pawn/painter/snare moving to the backrank => promotion required
       willRequirePromotion = SquareSet.backranks().has(move.to);
-    } else if (fromIsWizard && targetPiece && targetPiece.role === 'pawn' && targetPiece.color === this.turn) {
+    } else if (fromIsWizard && targetPiece && (targetPiece.role === 'pawn' || targetPiece.role === 'painter' || targetPiece.role === 'snare') && targetPiece.color === this.turn && ((targetPiece.color === 'white' && fromRank === 7) || (targetPiece.color === 'black' && fromRank === 0))) {
       willRequirePromotion = SquareSet.backranks().has(move.from);
     } else {
       willRequirePromotion = false;
