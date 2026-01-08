@@ -517,12 +517,15 @@ class Position {
             const fromIsPawnLike = this.board.pawn.has(move.from) || (this.board.painter && this.board.painter.has(move.from)) || (this.board.snare && this.board.snare.has(move.from));
             const fromIsWizard = this.board.wizard && this.board.wizard.has(move.from);
             let willRequirePromotion = false;
+            const fromRank = Math.floor(move.from / 8);
             if (fromIsPawnLike) {
                 // a pawn/painter/snare moving to the backrank => promotion required
                 willRequirePromotion = squareSet_js_1.SquareSet.backranks().has(move.to);
+                //willRequirePromotion = true;
             }
-            else if (fromIsWizard && targetPiece && targetPiece.role === 'pawn' && targetPiece.color === this.turn) {
+            else if (fromIsWizard && targetPiece && (targetPiece.role === 'pawn' || targetPiece.role === 'painter' || targetPiece.role === 'snare') && targetPiece.color === this.turn && ((targetPiece.color === 'white' && fromRank === 7) || (targetPiece.color === 'black' && fromRank === 0))) {
                 willRequirePromotion = squareSet_js_1.SquareSet.backranks().has(move.from);
+                //willRequirePromotion = true;
             }
             else {
                 willRequirePromotion = false;
@@ -736,7 +739,7 @@ class Position {
                     moved: true,
                 };
                 // allow promotion-as-swap for pawns if needed
-                if (swappedPiece.role === 'pawn' &&
+                if ((swappedPiece.role === 'pawn' || swappedPiece.role === 'painter' || swappedPiece.role === 'snare') &&
                     squareSet_js_1.SquareSet.backranks().has(move.from) &&
                     move.promotion) {
                     swappedPiece.role = move.promotion;

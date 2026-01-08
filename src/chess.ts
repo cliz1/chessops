@@ -599,11 +599,11 @@ isLegal(move: Move, ctx?: Context): boolean {
 
     if (fromIsPawnLike) {
       // a pawn/painter/snare moving to the backrank => promotion required
-      //willRequirePromotion = SquareSet.backranks().has(move.to);
-      willRequirePromotion = true;
+      willRequirePromotion = SquareSet.backranks().has(move.to);
+      //willRequirePromotion = true;
     } else if (fromIsWizard && targetPiece && (targetPiece.role === 'pawn' || targetPiece.role === 'painter' || targetPiece.role === 'snare') && targetPiece.color === this.turn && ((targetPiece.color === 'white' && fromRank === 7) || (targetPiece.color === 'black' && fromRank === 0))) {
-      //willRequirePromotion = SquareSet.backranks().has(move.from);
-      willRequirePromotion = true;
+      willRequirePromotion = SquareSet.backranks().has(move.from);
+      //willRequirePromotion = true;
     } else {
       willRequirePromotion = false;
     }
@@ -837,7 +837,7 @@ play(move: Move): void {
 
       // allow promotion-as-swap for pawns if needed
       if (
-        swappedPiece.role === 'pawn' &&
+        (swappedPiece.role === 'pawn' || swappedPiece.role === 'painter' || swappedPiece.role === 'snare') &&
         SquareSet.backranks().has(move.from) &&
         move.promotion
       ) {
