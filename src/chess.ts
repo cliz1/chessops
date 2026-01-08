@@ -599,12 +599,17 @@ isLegal(move: Move, ctx?: Context): boolean {
 
     if (fromIsPawnLike) {
       // a pawn/painter/snare moving to the backrank => promotion required
-      willRequirePromotion = SquareSet.backranks().has(move.to);
+      //willRequirePromotion = SquareSet.backranks().has(move.to);
+      willRequirePromotion = true;
     } else if (fromIsWizard && targetPiece && (targetPiece.role === 'pawn' || targetPiece.role === 'painter' || targetPiece.role === 'snare') && targetPiece.color === this.turn && ((targetPiece.color === 'white' && fromRank === 7) || (targetPiece.color === 'black' && fromRank === 0))) {
-      willRequirePromotion = SquareSet.backranks().has(move.from);
+      //willRequirePromotion = SquareSet.backranks().has(move.from);
+      willRequirePromotion = true;
     } else {
       willRequirePromotion = false;
     }
+
+
+
     if (!!move.promotion !== willRequirePromotion) return false;
     const dests = this.dests(move.from, ctx);
     return dests.has(move.to) || dests.has(normalizeMove(this, move).to);
