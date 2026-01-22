@@ -90,8 +90,22 @@ const WIZARD_ATTACKS = tabulate(sq => {
 });
 
 const ROLLINGSNARE_ATTACKS = tabulate(sq => {
-  let s = KING_ATTACKS[sq];
-  s = s.union(WIZARD_ATTACKS[sq]);
+  let s = SquareSet.empty();
+
+  // For each direction (orthogonal + diagonal), add 1-step and 2-step attacks
+  for (const d of WIZARD_DELTAS) {
+    // First step from sq
+    const firstStepSet = singleStepTargets(sq, [d]);
+    for (const first of firstStepSet) {
+      s = s.with(first);
+
+      // Second step from that first-step square
+      const secondStepSet = singleStepTargets(first, [d]);
+      for (const second of secondStepSet) {
+        s = s.with(second);
+      }
+    }
+  }
 
   return s;
 });
@@ -196,8 +210,27 @@ export const royalpainterAttacks = (square: Square, occupied: SquareSet): Square
 /** Gets squares attacked or defended by a snare */
 export const snareAttacks = (color: Color, square: Square): SquareSet => SNARE_ATTACKS[color][square];
 
-/** Gets squares attacked or defended by a snare */
-export const rollingsnareAttacks = (square: Square, occupied: SquareSet): SquareSet => ROLLINGSNARE_ATTACKS[square];
+/** Gets squares attacked or defended by a rollingsnare */
+export const rollingsnareAttacks = (square: Square, occupied: SquareSet): SquareSet => {
+    let s = SquareSet.empty();
+    for (const d of WIZARD_DELTAS){
+      // first step from sq
+      const firstStepSet = singleStepTargets(square, [d]);
+      for (const first of firstStepSet){
+        s = s.with(first);
+        if (occupied.has(first)){
+          // blocked at step 1 - nothing beyond 
+          continue;
+        }
+        // Second step from that first-step square
+        const secondStepSet = singleStepTargets(first, [d]);
+        for (const second of secondStepSet) {
+        s = s.with(second);
+      }
+      }
+    }
+    return s
+}
 
 /** Gets squares attacked or defended by a wizard */
 export const wizardAttacks = (square: Square): SquareSet => WIZARD_ATTACKS[square];

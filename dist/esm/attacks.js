@@ -77,8 +77,20 @@ const WIZARD_ATTACKS = tabulate(sq => {
     return s;
 });
 const ROLLINGSNARE_ATTACKS = tabulate(sq => {
-    let s = KING_ATTACKS[sq];
-    s = s.union(WIZARD_ATTACKS[sq]);
+    let s = SquareSet.empty();
+    // For each direction (orthogonal + diagonal), add 1-step and 2-step attacks
+    for (const d of WIZARD_DELTAS) {
+        // First step from sq
+        const firstStepSet = singleStepTargets(sq, [d]);
+        for (const first of firstStepSet) {
+            s = s.with(first);
+            // Second step from that first-step square
+            const secondStepSet = singleStepTargets(first, [d]);
+            for (const second of secondStepSet) {
+                s = s.with(second);
+            }
+        }
+    }
     return s;
 });
 /**
@@ -154,8 +166,27 @@ export const painterAttacks = (color, square) => PAWN_ATTACKS[color][square];
 export const royalpainterAttacks = (square, occupied) => bishopAttacks(square, occupied).xor(rookAttacks(square, occupied));
 /** Gets squares attacked or defended by a snare */
 export const snareAttacks = (color, square) => SNARE_ATTACKS[color][square];
-/** Gets squares attacked or defended by a snare */
-export const rollingsnareAttacks = (square, occupied) => ROLLINGSNARE_ATTACKS[square];
+/** Gets squares attacked or defended by a rollingsnare */
+export const rollingsnareAttacks = (square, occupied) => {
+    let s = SquareSet.empty();
+    for (const d of WIZARD_DELTAS) {
+        // first step from sq
+        const firstStepSet = singleStepTargets(square, [d]);
+        for (const first of firstStepSet) {
+            s = s.with(first);
+            if (occupied.has(first)) {
+                // blocked at step 1 - nothing beyond 
+                continue;
+            }
+            // Second step from that first-step square
+            const secondStepSet = singleStepTargets(first, [d]);
+            for (const second of secondStepSet) {
+                s = s.with(second);
+            }
+        }
+    }
+    return s;
+};
 /** Gets squares attacked or defended by a wizard */
 export const wizardAttacks = (square) => WIZARD_ATTACKS[square];
 /** Gets squares attacked or defended by an archer on `square`. */

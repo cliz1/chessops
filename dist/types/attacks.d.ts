@@ -60,7 +60,7 @@ export declare const painterAttacks: (color: Color, square: Square) => SquareSet
 export declare const royalpainterAttacks: (square: Square, occupied: SquareSet) => SquareSet;
 /** Gets squares attacked or defended by a snare */
 export declare const snareAttacks: (color: Color, square: Square) => SquareSet;
-/** Gets squares attacked or defended by a snare */
+/** Gets squares attacked or defended by a rollingsnare */
 export declare const rollingsnareAttacks: (square: Square, occupied: SquareSet) => SquareSet;
 /** Gets squares attacked or defended by a wizard */
 export declare const wizardAttacks: (square: Square) => SquareSet;

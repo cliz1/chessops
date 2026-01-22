@@ -467,7 +467,6 @@ ctx(): Context {
             if (this.simulateWizardMoveIsLegal(square, to, ctx)) allowed = allowed.with(to);
           }
           pseudo = allowed;
-        
         }
         else {
           pseudo = pseudo.intersect(ray(square, ctx.king));
