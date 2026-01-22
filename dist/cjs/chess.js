@@ -402,6 +402,20 @@ class Position {
                     }
                     pseudo = allowed;
                 }
+                else if (piece.role === 'archer') {
+                    // archer shot pin exception logic
+                    // is 'to' 2-3 squares away and has an enemy piece
+                    let allowed = squareSet_js_1.SquareSet.empty();
+                    for (const to of pseudo) {
+                        const fileDelta = Math.abs((0, util_js_1.squareFile)(to) - (0, util_js_1.squareFile)(square));
+                        const rankDelta = Math.abs((0, util_js_1.squareRank)(to) - (0, util_js_1.squareRank)(square));
+                        const maxDelta = Math.max(fileDelta, rankDelta);
+                        if (maxDelta > 1 && fileDelta === rankDelta) {
+                            allowed = allowed.with(to);
+                        }
+                    }
+                    pseudo = allowed;
+                }
                 else {
                     pseudo = pseudo.intersect((0, attacks_js_1.ray)(square, ctx.king));
                 }

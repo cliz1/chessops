@@ -452,7 +452,7 @@ ctx(): Context {
       // Pinned
       if (ctx.blockers.has(square)) {
         if (piece.role === 'painter') {
-          // painter pin exception logic
+          // painter pin exception 
           let captureSquares = this.board[opposite(this.turn)];
           if (defined(this.epSquare) && canCaptureEp(this, square, ctx)) {
             captureSquares = captureSquares.with(this.epSquare);
@@ -461,10 +461,23 @@ ctx(): Context {
           const nonCapture = pseudo.diff(captureSquares).intersect(ray(square, ctx.king));
           pseudo = capturesOnly.union(nonCapture);
         } else if (piece.role === 'wizard'){
-          // wizard pin exception logic
+          // wizard pin exception 
           let allowed = SquareSet.empty();
           for (const to of pseudo) {
             if (this.simulateWizardMoveIsLegal(square, to, ctx)) allowed = allowed.with(to);
+          }
+          pseudo = allowed;
+        } else if (piece.role === 'archer'){
+          // archer shot pin exception 
+          // is 'to' 2-3 squares away and has an enemy piece
+          let allowed = SquareSet.empty();
+          for (const to of pseudo){
+              const fileDelta = Math.abs(squareFile(to) - squareFile(square));
+              const rankDelta = Math.abs(squareRank(to) - squareRank(square));
+              const maxDelta = Math.max(fileDelta, rankDelta);
+              if (maxDelta > 1 && fileDelta === rankDelta){
+                allowed = allowed.with(to);
+              }
           }
           pseudo = allowed;
         }

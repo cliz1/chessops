@@ -89,27 +89,6 @@ const WIZARD_ATTACKS = tabulate(sq => {
   return s;
 });
 
-const ROLLINGSNARE_ATTACKS = tabulate(sq => {
-  let s = SquareSet.empty();
-
-  // For each direction (orthogonal + diagonal), add 1-step and 2-step attacks
-  for (const d of WIZARD_DELTAS) {
-    // First step from sq
-    const firstStepSet = singleStepTargets(sq, [d]);
-    for (const first of firstStepSet) {
-      s = s.with(first);
-
-      // Second step from that first-step square
-      const secondStepSet = singleStepTargets(first, [d]);
-      for (const second of secondStepSet) {
-        s = s.with(second);
-      }
-    }
-  }
-
-  return s;
-});
-
 
 /**
  * Gets squares attacked or defended by a king on `square`.
