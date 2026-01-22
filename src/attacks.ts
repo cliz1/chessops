@@ -197,7 +197,7 @@ export const royalpainterAttacks = (square: Square, occupied: SquareSet): Square
 export const snareAttacks = (color: Color, square: Square): SquareSet => SNARE_ATTACKS[color][square];
 
 /** Gets squares attacked or defended by a snare */
-export const rollingsnareAttacks = (square: Square): SquareSet => ROLLINGSNARE_ATTACKS[square];
+export const rollingsnareAttacks = (square: Square, occupied: SquareSet): SquareSet => ROLLINGSNARE_ATTACKS[square];
 
 /** Gets squares attacked or defended by a wizard */
 export const wizardAttacks = (square: Square): SquareSet => WIZARD_ATTACKS[square];
@@ -276,7 +276,7 @@ export const attacks = (piece: Piece, square: Square, occupied: SquareSet): Squa
     case 'royalpainter':
       return royalpainterAttacks(square, occupied);
     case 'rollingsnare':
-      return rollingsnareAttacks(square);
+      return rollingsnareAttacks(square, occupied);
   }
 };
 

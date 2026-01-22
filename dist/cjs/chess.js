@@ -317,7 +317,7 @@ class Position {
             pseudo = pseudo.diff(this.board.white).diff(this.board.black);
         }
         else if (piece.role === 'rollingsnare') {
-            pseudo = (0, attacks_js_1.rollingsnareAttacks)(square);
+            pseudo = (0, attacks_js_1.rollingsnareAttacks)(square, this.board.occupied);
             // cannot capture
             pseudo = pseudo.diff(this.board.white).diff(this.board.black);
         }
@@ -1006,7 +1006,7 @@ const pseudoDests = (pos, square, ctx) => {
         pseudo = pseudo.diff(pos.board.white).diff(pos.board.black);
     }
     else if (piece.role === 'rollingsnare') {
-        pseudo = (0, attacks_js_1.rollingsnareAttacks)(square);
+        pseudo = (0, attacks_js_1.rollingsnareAttacks)(square, pos.board.occupied);
         // cannot capture
         pseudo = pseudo.diff(pos.board.white).diff(pos.board.black);
     }

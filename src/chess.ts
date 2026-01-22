@@ -383,7 +383,7 @@ ctx(): Context {
       pseudo = pseudo.diff(this.board.white).diff(this.board.black);
     }
     else if (piece.role === 'rollingsnare') {
-      pseudo = rollingsnareAttacks(square);
+      pseudo = rollingsnareAttacks(square, this.board.occupied);
       // cannot capture
       pseudo = pseudo.diff(this.board.white).diff(this.board.black);
     }
@@ -467,7 +467,9 @@ ctx(): Context {
             if (this.simulateWizardMoveIsLegal(square, to, ctx)) allowed = allowed.with(to);
           }
           pseudo = allowed;
-        } else {
+        
+        }
+        else {
           pseudo = pseudo.intersect(ray(square, ctx.king));
         }
       }
@@ -1108,7 +1110,7 @@ export const pseudoDests = (pos: Position, square: Square, ctx: Context): Square
     pseudo = pseudo.diff(pos.board.white).diff(pos.board.black);
   } 
   else if (piece.role === 'rollingsnare') {
-      pseudo = rollingsnareAttacks(square);
+      pseudo = rollingsnareAttacks(square, pos.board.occupied);
       // cannot capture
       pseudo = pseudo.diff(pos.board.white).diff(pos.board.black);
     }
