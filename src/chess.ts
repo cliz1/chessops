@@ -1048,7 +1048,7 @@ const castlingDest = (pos: Position, side: CastlingSide, ctx: Context): SquareSe
   const after = pos.board.occupied.toggle(ctx.king).toggle(rook).toggle(rookTo);
   if (pos.kingAttackers(kingTo, opposite(pos.turn), after).nonEmpty()) return SquareSet.empty();
 
-  return SquareSet.fromSquare(rook);
+  return SquareSet.fromSquare(kingTo);
 };
 
 const snareZone = (pos: Position, square: Square, color: Color): SquareSet => {

@@ -379,7 +379,7 @@ export class Position {
             // Pinned
             if (ctx.blockers.has(square)) {
                 if (piece.role === 'painter') {
-                    // painter pin exception logic
+                    // painter pin exception 
                     let captureSquares = this.board[opposite(this.turn)];
                     if (defined(this.epSquare) && canCaptureEp(this, square, ctx)) {
                         captureSquares = captureSquares.with(this.epSquare);
@@ -389,7 +389,7 @@ export class Position {
                     pseudo = capturesOnly.union(nonCapture);
                 }
                 else if (piece.role === 'wizard') {
-                    // wizard pin exception logic
+                    // wizard pin exception 
                     let allowed = SquareSet.empty();
                     for (const to of pseudo) {
                         if (this.simulateWizardMoveIsLegal(square, to, ctx))
@@ -398,7 +398,7 @@ export class Position {
                     pseudo = allowed;
                 }
                 else if (piece.role === 'archer') {
-                    // archer shot pin exception logic
+                    // archer shot pin exception 
                     // is 'to' 2-3 squares away and has an enemy piece
                     let allowed = SquareSet.empty();
                     for (const to of pseudo) {
@@ -941,7 +941,7 @@ const castlingDest = (pos, side, ctx) => {
     const after = pos.board.occupied.toggle(ctx.king).toggle(rook).toggle(rookTo);
     if (pos.kingAttackers(kingTo, opposite(pos.turn), after).nonEmpty())
         return SquareSet.empty();
-    return SquareSet.fromSquare(rook);
+    return SquareSet.fromSquare(kingTo);
 };
 const snareZone = (pos, square, color) => {
     const front = color === 'white' ? square + 8 : square - 8;
