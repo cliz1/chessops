@@ -39,6 +39,7 @@ export declare abstract class Position {
     turn: Color;
     castles: Castles;
     epSquare: Square | undefined;
+    wetPaintSquare: Square | undefined;
     remainingChecks: RemainingChecks | undefined;
     halfmoves: number;
     fullmoves: number;

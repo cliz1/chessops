@@ -178,6 +178,7 @@ export abstract class Position {
   turn: Color;
   castles: Castles;
   epSquare: Square | undefined;
+  wetPaintSquare: Square | undefined;
   remainingChecks: RemainingChecks | undefined;
   halfmoves: number;
   fullmoves: number;
@@ -190,6 +191,7 @@ export abstract class Position {
     this.turn = 'white';
     this.castles = Castles.default();
     this.epSquare = undefined;
+    this.wetPaintSquare = undefined;
     this.remainingChecks = undefined;
     this.halfmoves = 0;
     this.fullmoves = 1;
@@ -202,6 +204,7 @@ export abstract class Position {
     this.turn = setup.turn;
     this.castles = Castles.fromSetup(setup);
     this.epSquare = validEpSquare(this, setup.epSquare);
+    this.wetPaintSquare = undefined;
     this.remainingChecks = undefined;
     this.halfmoves = setup.halfmoves;
     this.fullmoves = setup.fullmoves;
@@ -292,6 +295,7 @@ ctx(): Context {
     pos.turn = this.turn;
     pos.castles = this.castles.clone();
     pos.epSquare = this.epSquare;
+    pos.wetPaintSquare = this.wetPaintSquare;
     pos.remainingChecks = this.remainingChecks?.clone();
     pos.halfmoves = this.halfmoves;
     pos.fullmoves = this.fullmoves;
@@ -355,6 +359,10 @@ ctx(): Context {
 
     if (piece.role === 'pawn' || piece.role === 'painter') {
       pseudo = pawnAttacks(this.turn, square).intersect(this.board[opposite(this.turn)]);
+      // Wet paint rule: painter cannot repaint a square the opponent just painted this half-move
+      if (piece.role === 'painter' && defined(this.wetPaintSquare)) {
+        pseudo = pseudo.without(this.wetPaintSquare);
+      }
       const delta = this.turn === 'white' ? 8 : -8;
       const step = square + delta;
       if (0 <= step && step < 64 && !this.board.occupied.has(step)) {
@@ -673,6 +681,7 @@ isLegal(move: Move, ctx?: Context): boolean {
 play(move: Move): void {
   const turn = this.turn;
   const prevEp = this.epSquare;
+  const prevWetPaint = this.wetPaintSquare;
   const castling = castlingSide(this, move);
 
   // Clear ephemeral state for this turn; will be set again if a double-step occurs
@@ -685,6 +694,7 @@ play(move: Move): void {
 
   if (isDrop(move)) {
     // dropping a piece from pocket
+    this.wetPaintSquare = undefined; 
     this.board.set(move.to, { role: move.role, color: turn });
     if (this.pockets) this.pockets[turn][move.role]--;
     if (move.role === 'pawn') this.halfmoves = 0;
@@ -700,6 +710,7 @@ play(move: Move): void {
 
   // --- Pawn behavior (including normal EP capture when move.to === prevEp) ---
   if (piece.role === 'pawn') {
+    this.wetPaintSquare = undefined;
     // reset fifty-move clock
     this.halfmoves = 0;
 
@@ -748,6 +759,7 @@ play(move: Move): void {
 
         // epSquare consumed
         this.epSquare = undefined;
+        this.wetPaintSquare = victimSquare;
         return;
       }
     }
@@ -755,6 +767,10 @@ play(move: Move): void {
     // Normal painting capture: if destination has an enemy piece, paint it and do NOT move painter.
     const dest = this.board.get(move.to);
     if (defined(dest) && dest.color !== piece.color) {
+      // Wet paint guard: opponent just painted this square last half-move, can't repaint yet.
+      // (This should already be filtered by dests(), but guard defensively here too.)
+      if (move.to === prevWetPaint) return;
+
       // Paint the destination piece
       const painted = { role: dest.role, color: piece.color, promoted: dest.promoted };
       this.board.set(move.to, painted);
@@ -765,10 +781,12 @@ play(move: Move): void {
       // If we painted a rook, update castling rights
       if (dest.role === 'rook') this.castles.discardRook(move.to);
 
+      this.wetPaintSquare = move.to;
       return;
     }
 
     // Otherwise: painter moves like a pawn (may be a double-step)
+    this.wetPaintSquare = undefined;
     if (move.promotion) {
       piece.role = move.promotion;
       piece.promoted = !!this.pockets;
@@ -788,10 +806,12 @@ play(move: Move): void {
   }
   // --- Rook: discard its rook-castle origin file if moved ---
   else if (piece.role === 'rook') {
+    this.wetPaintSquare = undefined;
     this.castles.discardRook(move.from);
   }
   // --- King: handle castling ---
   else if (piece.role === 'king') {
+    this.wetPaintSquare = undefined;
     if (castling) {
       const rookFrom = this.castles.rook[turn][castling];
       if (defined(rookFrom)) {
@@ -808,6 +828,7 @@ play(move: Move): void {
   }
   // --- Snare / Rollingsnare: cannot capture; move only to empty squares ---
   else if (piece.role === 'snare' || piece.role === 'rollingsnare') {
+    this.wetPaintSquare = undefined;
     if (move.promotion) {
       piece.role = move.promotion;
       piece.promoted = !!this.pockets;
@@ -825,6 +846,7 @@ play(move: Move): void {
   }
   // --- Wizard: swaps with friendly piece, normal capture, or normal move ---
   else if (piece.role === 'wizard') {
+    this.wetPaintSquare = undefined;
     const destBefore = this.board.get(move.to);
 
     // 1) normal empty destination -> move
@@ -870,6 +892,7 @@ play(move: Move): void {
   }
   // --- Archer special-case: ranged "hit" that leaves archer in place if long-range diagonal move ---
   else if (piece.role === 'archer') {
+    this.wetPaintSquare = undefined;
     const from = move.from;
     const to = move.to;
     const fileDelta = Math.abs(squareFile(to) - squareFile(from));
@@ -889,6 +912,7 @@ play(move: Move): void {
 
   // Generic case for remaining piece types: move normally (including handling epCapture set earlier)
   if (!castling) {
+    this.wetPaintSquare = undefined;
     const capture = this.board.set(move.to, piece) || epCapture;
     if (capture) this.playCaptureAt(move.to, capture);
   }
