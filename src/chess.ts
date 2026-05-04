@@ -478,12 +478,13 @@ ctx(): Context {
         } else if (piece.role === 'archer'){
           // archer shot pin exception 
           // is 'to' 2-3 squares away and has an enemy piece
+          // but cannot shoot pieces that are blocking the king from check
           let allowed = SquareSet.empty();
           for (const to of pseudo){
               const fileDelta = Math.abs(squareFile(to) - squareFile(square));
               const rankDelta = Math.abs(squareRank(to) - squareRank(square));
               const maxDelta = Math.max(fileDelta, rankDelta);
-              if (maxDelta > 1 && fileDelta === rankDelta){
+              if (maxDelta > 1 && fileDelta === rankDelta && !ctx.blockers.has(to)){
                 allowed = allowed.with(to);
               }
           }
@@ -500,6 +501,10 @@ ctx(): Context {
           if (this.simulateWizardMoveIsLegal(square, to, ctx)) allowed = allowed.with(to);
         }
         pseudo = allowed;
+      }
+      // Archer cannot shoot pieces that are blocking its own king from check (when not pinned)
+      if (piece.role === 'archer' && !ctx.blockers.has(square) && ctx.blockers.nonEmpty()) {
+        pseudo = pseudo.diff(ctx.blockers);
       }
     }
 

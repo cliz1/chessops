@@ -412,12 +412,13 @@ class Position {
                 else if (piece.role === 'archer') {
                     // archer shot pin exception 
                     // is 'to' 2-3 squares away and has an enemy piece
+                    // but cannot shoot pieces that are blocking the king from check
                     let allowed = squareSet_js_1.SquareSet.empty();
                     for (const to of pseudo) {
                         const fileDelta = Math.abs((0, util_js_1.squareFile)(to) - (0, util_js_1.squareFile)(square));
                         const rankDelta = Math.abs((0, util_js_1.squareRank)(to) - (0, util_js_1.squareRank)(square));
                         const maxDelta = Math.max(fileDelta, rankDelta);
-                        if (maxDelta > 1 && fileDelta === rankDelta) {
+                        if (maxDelta > 1 && fileDelta === rankDelta && !ctx.blockers.has(to)) {
                             allowed = allowed.with(to);
                         }
                     }
@@ -435,6 +436,10 @@ class Position {
                         allowed = allowed.with(to);
                 }
                 pseudo = allowed;
+            }
+            // Archer cannot shoot pieces that are blocking its own king from check (when not pinned)
+            if (piece.role === 'archer' && !ctx.blockers.has(square) && ctx.blockers.nonEmpty()) {
+                pseudo = pseudo.diff(ctx.blockers);
             }
         }
         if (legal)
