@@ -892,6 +892,8 @@ play(move: Move): void {
 
       // discard rook castling rights if the swapped piece was a rook
       if (swappedPiece.role === 'rook') this.castles.discardRook(move.to);
+      // discard all castling rights for the color if the swapped piece was the king
+      if (swappedPiece.role === 'king') this.castles.discardColor(turn);
       return;
     }
   }
