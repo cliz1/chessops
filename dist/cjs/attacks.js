@@ -166,26 +166,7 @@ exports.royalpainterAttacks = royalpainterAttacks;
 const snareAttacks = (color, square) => SNARE_ATTACKS[color][square];
 exports.snareAttacks = snareAttacks;
 /** Gets squares attacked or defended by a rollingsnare */
-const rollingsnareAttacks = (square, occupied) => {
-    let s = squareSet_js_1.SquareSet.empty();
-    for (const d of WIZARD_DELTAS) {
-        // first step from sq
-        const firstStepSet = singleStepTargets(square, [d]);
-        for (const first of firstStepSet) {
-            s = s.with(first);
-            if (occupied.has(first)) {
-                // blocked at step 1 - nothing beyond 
-                continue;
-            }
-            // Second step from that first-step square
-            const secondStepSet = singleStepTargets(first, [d]);
-            for (const second of secondStepSet) {
-                s = s.with(second);
-            }
-        }
-    }
-    return s;
-};
+const rollingsnareAttacks = (square, occupied) => (0, exports.queenAttacks)(square, occupied);
 exports.rollingsnareAttacks = rollingsnareAttacks;
 /** Gets squares attacked or defended by a wizard */
 const wizardAttacks = (square) => WIZARD_ATTACKS[square];
