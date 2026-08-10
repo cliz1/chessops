@@ -979,7 +979,7 @@ const castlingDest = (pos, side, ctx) => {
     const after = pos.board.occupied.toggle(ctx.king).toggle(rook).toggle(rookTo);
     if (pos.kingAttackers(kingTo, (0, util_js_1.opposite)(pos.turn), after).nonEmpty())
         return squareSet_js_1.SquareSet.empty();
-    return squareSet_js_1.SquareSet.fromSquare(kingTo);
+    return squareSet_js_1.SquareSet.fromSquare(kingTo).with(rook);
 };
 const snareZone = (pos, square, color) => {
     const front = color === 'white' ? square + 8 : square - 8;
