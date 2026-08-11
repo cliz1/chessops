@@ -33,7 +33,8 @@ const attacksTo = (square, attacker, board, occupied) => board[attacker].interse
     .union((0, attacks_js_1.wizardAttacks)(square).intersect(board.wizard))
     .union((0, attacks_js_1.archerAttacks)(square, occupied).intersect(board.archer))
     .union((0, attacks_js_1.royalpainterAttacks)(square, occupied).intersect(board.royalpainter))
-    .union((0, attacks_js_1.centaurAttacks)(square, occupied).intersect(board.centaur)));
+    .union((0, attacks_js_1.centaurAttacks)(square, occupied).intersect(board.centaur))
+    .union((0, attacks_js_1.generalAttacks)(square, occupied).intersect(board.general)));
 class Castles {
     constructor() { }
     static default() {
@@ -172,14 +173,15 @@ class Position {
     }
     ctx() {
         const variantEnd = this.isVariantEnd();
-        const king = this.board.kingOf(this.turn);
+        const king = this.board.royalOf(this.turn);
         if (!(0, util_js_1.defined)(king)) {
             return { king, blockers: squareSet_js_1.SquareSet.empty(), checkers: squareSet_js_1.SquareSet.empty(), variantEnd, mustCapture: false };
         }
         const rookLikeSliders = this.board.rooksAndQueens()
             .union(this.board.champion)
             .union(this.board.amazon)
-            .union(this.board.royalpainter);
+            .union(this.board.royalpainter)
+            .union(this.board.general);
         const bishopLikeSliders = this.board.bishopsAndQueens()
             .union(this.board.princess)
             .union(this.board.amazon)
@@ -240,11 +242,13 @@ class Position {
     validate() {
         if (this.board.occupied.isEmpty())
             return result_1.Result.err(new PositionError(IllegalSetup.Empty));
-        if (this.board.king.size() !== 2)
-            return result_1.Result.err(new PositionError(IllegalSetup.Kings));
-        if (!(0, util_js_1.defined)(this.board.kingOf(this.turn)))
-            return result_1.Result.err(new PositionError(IllegalSetup.Kings));
-        const otherKing = this.board.kingOf((0, util_js_1.opposite)(this.turn));
+        // Each side must have exactly one royal piece: a king or a general, never both.
+        for (const color of types_js_1.COLORS) {
+            const royalCount = this.board.pieces(color, 'king').size() + this.board.pieces(color, 'general').size();
+            if (royalCount !== 1)
+                return result_1.Result.err(new PositionError(IllegalSetup.Kings));
+        }
+        const otherKing = this.board.royalOf((0, util_js_1.opposite)(this.turn));
         if (!(0, util_js_1.defined)(otherKing))
             return result_1.Result.err(new PositionError(IllegalSetup.Kings));
         if (this.kingAttackers(otherKing, this.turn, this.board.occupied).nonEmpty()) {
@@ -343,19 +347,27 @@ class Position {
         else if (piece.role === 'centaur') {
             pseudo = (0, attacks_js_1.centaurAttacks)(square, this.board.occupied);
         }
+        else if (piece.role === 'general') {
+            pseudo = (0, attacks_js_1.generalAttacks)(square, this.board.occupied);
+        }
         else
             pseudo = (0, attacks_js_1.kingAttacks)(square);
         if (piece.role !== 'wizard') {
             pseudo = pseudo.diff(this.board[this.turn]);
         }
         if ((0, util_js_1.defined)(ctx.king)) {
-            if (piece.role === 'king') {
+            // King and general are both royal: neither may move to an attacked square.
+            // Only the king may castle.
+            if (piece.role === 'king' || piece.role === 'general') {
                 const occ = this.board.occupied.without(square);
                 for (const to of pseudo) {
                     if (this.kingAttackers(to, (0, util_js_1.opposite)(this.turn), occ).nonEmpty())
                         pseudo = pseudo.without(to);
                 }
-                return pseudo.union(castlingDest(this, 'a', ctx)).union(castlingDest(this, 'h', ctx));
+                if (piece.role === 'king') {
+                    return pseudo.union(castlingDest(this, 'a', ctx)).union(castlingDest(this, 'h', ctx));
+                }
+                return pseudo;
             }
             // In check
             if (ctx.checkers.nonEmpty()) {
@@ -387,9 +399,12 @@ class Position {
                         role === 'amazon' || // queen-like sliding part
                         role === 'royalpainter' || // treated as sliding elsewhere
                         role === 'archer' || // archer acted as a sniper in ctx()
-                        role === 'centaur' // centaur's ranged shot acted as a sniper in ctx();
-                    // its knight-jump checks are naturally excluded below
-                    // since a knight offset never lies on ray(checker, king)
+                        role === 'centaur' || // centaur's ranged shot acted as a sniper in ctx();
+                        // its knight-jump checks are naturally excluded below
+                        // since a knight offset never lies on ray(checker, king)
+                        role === 'general' // contains rook-like sliding part; its adjacent
+                    // wazir checks are naturally excluded below since
+                    // between() is empty for adjacent squares
                     );
                     if (canBeBlocked) {
                         pseudo = pseudo.intersect((0, attacks_js_1.between)(checker, ctx.king).with(checker));
@@ -515,28 +530,30 @@ class Position {
             .union(this.board.wizard)
             .union(this.board.centaur);
         const nonMating = this.board.snare.union(this.board.archer).union(this.board.rollingsnare);
+        // Royal piece (king or general) — the non-mating baseline every side has exactly one of.
+        const royal = this.board.king.union(this.board.general);
         // 1) If side has pawns, rooks/queens, painter (promotion-like), or any can-mate piece => sufficient
         if (side.intersect(pawns.union(rooksQueens).union(painter).union(canMate)).nonEmpty()) {
             return false;
         }
-        // 2) Only king? => insufficient
-        if (side.diff(this.board.king).isEmpty())
+        // 2) Only the royal piece? => insufficient
+        if (side.diff(royal).isEmpty())
             return true;
-        // 3) If side's only non-king pieces are non-mating pieces and opponent only has king => insufficient
-        if (side.diff(this.board.king).diff(nonMating).isEmpty() && opp.diff(this.board.king).isEmpty()) {
+        // 3) If side's only non-royal pieces are non-mating pieces and opponent only has their royal piece => insufficient
+        if (side.diff(royal).diff(nonMating).isEmpty() && opp.diff(royal).isEmpty()) {
             return true;
         }
-        // 4) Knights-only cases: (side has knights and nothing else but king) vs lone king => insufficient
+        // 4) Knights-only cases: (side has knights and nothing else but royal piece) vs lone royal piece => insufficient
         if (side.intersect(knights).nonEmpty() &&
-            side.diff(this.board.king).diff(knights).isEmpty() &&
-            opp.diff(this.board.king).isEmpty()) {
+            side.diff(royal).diff(knights).isEmpty() &&
+            opp.diff(royal).isEmpty()) {
             return true;
         }
         // 5) Bishops-only: check bishops belonging to side (use side.intersect on the board's bishop set)
         const sideBishops = side.intersect(bishopsSet);
         if (sideBishops.nonEmpty() &&
-            side.diff(this.board.king).diff(bishopsSet).isEmpty() &&
-            opp.diff(this.board.king).isEmpty()) {
+            side.diff(royal).diff(bishopsSet).isEmpty() &&
+            opp.diff(royal).isEmpty()) {
             const bishopsOnDark = sideBishops.intersects(squareSet_js_1.SquareSet.darkSquares());
             const bishopsOnLight = sideBishops.intersects(squareSet_js_1.SquareSet.lightSquares());
             const sameSquareColor = !(bishopsOnDark && bishopsOnLight); // true if bishops are NOT on both colors
@@ -583,7 +600,7 @@ class Position {
             // invalid promotion hints
             if (move.promotion === 'pawn')
                 return false;
-            if (move.promotion === 'king' && this.rules !== 'antichess')
+            if ((move.promotion === 'king' || move.promotion === 'general') && this.rules !== 'antichess')
                 return false;
             // Helper info about the from/to squares and board pieces
             const targetPiece = this.board.get(move.to); // Piece | undefined
@@ -610,7 +627,7 @@ class Position {
         }
     }
     isCheck() {
-        const king = this.board.kingOf(this.turn);
+        const king = this.board.royalOf(this.turn);
         return (0, util_js_1.defined)(king) && this.kingAttackers(king, (0, util_js_1.opposite)(this.turn), this.board.occupied).nonEmpty();
     }
     isEnd(ctx) {
@@ -932,10 +949,10 @@ class Position {
         for (const sq of tempPieceMap.keys()) {
             tempOccupied = tempOccupied.union(squareSet_js_1.SquareSet.fromSquare(sq));
         }
-        // Locate king after applying the simulated move/swap
+        // Locate the royal piece (king or general) after applying the simulated move/swap
         let kingSq;
         for (const [sq, p] of tempPieceMap) {
-            if (p.role === 'king' && p.color === color) {
+            if ((p.role === 'king' || p.role === 'general') && p.color === color) {
                 kingSq = sq;
                 break;
             }
@@ -1183,7 +1200,7 @@ exports.isStandardMaterialSide = isStandardMaterialSide;
 const isStandardMaterial = (pos) => types_js_1.COLORS.every(color => (0, exports.isStandardMaterialSide)(pos.board, color));
 exports.isStandardMaterial = isStandardMaterial;
 const isImpossibleCheck = (pos) => {
-    const ourKing = pos.board.kingOf(pos.turn);
+    const ourKing = pos.board.royalOf(pos.turn);
     if (!(0, util_js_1.defined)(ourKing))
         return false;
     const checkers = pos.kingAttackers(ourKing, (0, util_js_1.opposite)(pos.turn), pos.board.occupied);

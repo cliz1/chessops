@@ -68,6 +68,8 @@ const DIAGONAL_DELTAS = [9, 7, -7, -9];
 
 const WIZARD_DELTAS = [...ORTHOGONAL_DELTAS, ...DIAGONAL_DELTAS];
 
+const WAZIR_ATTACKS = tabulate(sq => singleStepTargets(sq, ORTHOGONAL_DELTAS));
+
 const WIZARD_ATTACKS = tabulate(sq => {
   let s = SquareSet.empty();
 
@@ -278,6 +280,16 @@ export const centaurAttacks = (square: Square, occupied: SquareSet): SquareSet =
 };
 
 /**
+ * Gets squares attacked or defended by a general on `square`, given
+ * `occupied` squares. A general moves and captures one square
+ * orthogonally (like a wazir), and can additionally capture (but not
+ * move to an empty square) any distance orthogonally, like a rook,
+ * subject to the usual rook blocking rules.
+ */
+export const generalAttacks = (square: Square, occupied: SquareSet): SquareSet =>
+  WAZIR_ATTACKS[square].union(rookAttacks(square, occupied).intersect(occupied));
+
+/**
  * Gets squares attacked or defended by a `piece` on `square`, given
  * `occupied` squares.
  */
@@ -317,6 +329,8 @@ export const attacks = (piece: Piece, square: Square, occupied: SquareSet): Squa
       return rollingsnareAttacks(square, occupied);
     case 'centaur':
       return centaurAttacks(square, occupied);
+    case 'general':
+      return generalAttacks(square, occupied);
   }
 };
 

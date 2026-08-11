@@ -40,6 +40,7 @@ export class Board implements Iterable<[Square, Piece]>, ByRole<SquareSet>, ByCo
   royalpainter: SquareSet;
   rollingsnare: SquareSet;
   centaur: SquareSet;
+  general: SquareSet;
 
   private constructor() {}
 
@@ -74,6 +75,7 @@ export class Board implements Iterable<[Square, Piece]>, ByRole<SquareSet>, ByCo
     this.royalpainter = SquareSet.empty();
     this.rollingsnare = SquareSet.empty();
     this.centaur = SquareSet.empty();
+    this.general = SquareSet.empty();
   }
 
   static empty(): Board {
@@ -173,6 +175,14 @@ export class Board implements Iterable<[Square, Piece]>, ByRole<SquareSet>, ByCo
    */
   kingOf(color: Color): Square | undefined {
     return this.pieces(color, 'king').singleSquare();
+  }
+
+  /**
+   * Finds the unique royal piece (king or general) of the given `color`,
+   * if any. A side has exactly one of the two.
+   */
+  royalOf(color: Color): Square | undefined {
+    return this.pieces(color, 'king').union(this.pieces(color, 'general')).singleSquare();
   }
 }
 

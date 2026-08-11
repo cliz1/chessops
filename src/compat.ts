@@ -29,7 +29,7 @@ export const chessgroundDests = (pos: Position, opts?: ChessgroundDestsOpts): Ma
   for (const [from, squares] of pos.allDests(ctx)) {
     if (squares.nonEmpty()) {
       const d = Array.from(squares, makeSquare);
-      if (!opts?.chess960 && from === ctx.king && squareFile(from) === 4) {
+      if (!opts?.chess960 && from === ctx.king && squareFile(from) === 4 && pos.board.get(from)?.role === 'king') {
         // Chessground needs both types of castling dests and filters based on
         // a rookCastles setting.
         if (squares.has(0)) d.push('c1');

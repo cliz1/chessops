@@ -76,6 +76,14 @@ export declare const archerAttacks: (square: Square, occupied: SquareSet) => Squ
  */
 export declare const centaurAttacks: (square: Square, occupied: SquareSet) => SquareSet;
 /**
+ * Gets squares attacked or defended by a general on `square`, given
+ * `occupied` squares. A general moves and captures one square
+ * orthogonally (like a wazir), and can additionally capture (but not
+ * move to an empty square) any distance orthogonally, like a rook,
+ * subject to the usual rook blocking rules.
+ */
+export declare const generalAttacks: (square: Square, occupied: SquareSet) => SquareSet;
+/**
  * Gets squares attacked or defended by a `piece` on `square`, given
  * `occupied` squares.
  */

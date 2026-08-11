@@ -17,12 +17,13 @@ import { makeSquare, squareFile } from './util.js';
  * correctly.
  */
 export const chessgroundDests = (pos, opts) => {
+    var _a;
     const result = new Map();
     const ctx = pos.ctx();
     for (const [from, squares] of pos.allDests(ctx)) {
         if (squares.nonEmpty()) {
             const d = Array.from(squares, makeSquare);
-            if (!(opts === null || opts === void 0 ? void 0 : opts.chess960) && from === ctx.king && squareFile(from) === 4) {
+            if (!(opts === null || opts === void 0 ? void 0 : opts.chess960) && from === ctx.king && squareFile(from) === 4 && ((_a = pos.board.get(from)) === null || _a === void 0 ? void 0 : _a.role) === 'king') {
                 // Chessground needs both types of castling dests and filters based on
                 // a rookCastles setting.
                 if (squares.has(0))

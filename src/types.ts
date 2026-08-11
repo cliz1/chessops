@@ -10,7 +10,7 @@ export type Square = number;
 
 export type SquareName = `${FileName}${RankName}`;
 
-export const ROLE_CHARS = ['q', 'n', 'r', 'b', 'p', 'k', 'c', 'i', 'a', 'm', 'y', 's', 'w', 'x', 'o', 'l', 'u'] as const;
+export const ROLE_CHARS = ['q', 'n', 'r', 'b', 'p', 'k', 'c', 'i', 'a', 'm', 'y', 's', 'w', 'x', 'o', 'l', 'u', 'g'] as const;
 
 export type LowerCaseRoleChar = (typeof ROLE_CHARS)[number];
 
@@ -32,7 +32,7 @@ export type ByColor<T> = {
   [color in Color]: T;
 };
 
-export const ROLES = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king', 'champion', 'princess', 'amazon', 'mann', 'painter', 'snare', 'wizard', 'archer', 'royalpainter', 'rollingsnare', 'centaur'] as const;
+export const ROLES = ['pawn', 'knight', 'bishop', 'rook', 'queen', 'king', 'champion', 'princess', 'amazon', 'mann', 'painter', 'snare', 'wizard', 'archer', 'royalpainter', 'rollingsnare', 'centaur', 'general'] as const;
 
 export type Role = (typeof ROLES)[number];
 

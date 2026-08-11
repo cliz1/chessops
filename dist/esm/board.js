@@ -40,6 +40,7 @@ export class Board {
         this.royalpainter = SquareSet.empty();
         this.rollingsnare = SquareSet.empty();
         this.centaur = SquareSet.empty();
+        this.general = SquareSet.empty();
     }
     static empty() {
         const board = new Board();
@@ -135,6 +136,13 @@ export class Board {
      */
     kingOf(color) {
         return this.pieces(color, 'king').singleSquare();
+    }
+    /**
+     * Finds the unique royal piece (king or general) of the given `color`,
+     * if any. A side has exactly one of the two.
+     */
+    royalOf(color) {
+        return this.pieces(color, 'king').union(this.pieces(color, 'general')).singleSquare();
     }
 }
 export const boardEquals = (left, right) => left.white.equals(right.white)

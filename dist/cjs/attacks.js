@@ -13,7 +13,7 @@
  * @packageDocumentation
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.between = exports.ray = exports.attacks = exports.centaurAttacks = exports.archerAttacks = exports.wizardAttacks = exports.rollingsnareAttacks = exports.snareAttacks = exports.royalpainterAttacks = exports.painterAttacks = exports.mannAttacks = exports.amazonAttacks = exports.princessAttacks = exports.championAttacks = exports.queenAttacks = exports.rookAttacks = exports.bishopAttacks = exports.ANTI_DIAG_RANGE = exports.DIAG_RANGE = exports.RANK_RANGE = exports.FILE_RANGE = exports.pawnAttacks = exports.knightAttacks = exports.kingAttacks = exports.ARCHER_DELTAS = void 0;
+exports.between = exports.ray = exports.attacks = exports.generalAttacks = exports.centaurAttacks = exports.archerAttacks = exports.wizardAttacks = exports.rollingsnareAttacks = exports.snareAttacks = exports.royalpainterAttacks = exports.painterAttacks = exports.mannAttacks = exports.amazonAttacks = exports.princessAttacks = exports.championAttacks = exports.queenAttacks = exports.rookAttacks = exports.bishopAttacks = exports.ANTI_DIAG_RANGE = exports.DIAG_RANGE = exports.RANK_RANGE = exports.FILE_RANGE = exports.pawnAttacks = exports.knightAttacks = exports.kingAttacks = exports.ARCHER_DELTAS = void 0;
 const squareSet_js_1 = require("./squareSet.js");
 const util_js_1 = require("./util.js");
 const computeRange = (square, deltas) => {
@@ -62,6 +62,7 @@ exports.ARCHER_DELTAS = [7, 9, -7, -9];
 const ORTHOGONAL_DELTAS = [8, -8, 1, -1];
 const DIAGONAL_DELTAS = [9, 7, -7, -9];
 const WIZARD_DELTAS = [...ORTHOGONAL_DELTAS, ...DIAGONAL_DELTAS];
+const WAZIR_ATTACKS = tabulate(sq => singleStepTargets(sq, ORTHOGONAL_DELTAS));
 const WIZARD_ATTACKS = tabulate(sq => {
     let s = squareSet_js_1.SquareSet.empty();
     // For each direction (orthogonal + diagonal), add 1-step and 2-step attacks
@@ -251,6 +252,15 @@ const centaurAttacks = (square, occupied) => {
 };
 exports.centaurAttacks = centaurAttacks;
 /**
+ * Gets squares attacked or defended by a general on `square`, given
+ * `occupied` squares. A general moves and captures one square
+ * orthogonally (like a wazir), and can additionally capture (but not
+ * move to an empty square) any distance orthogonally, like a rook,
+ * subject to the usual rook blocking rules.
+ */
+const generalAttacks = (square, occupied) => WAZIR_ATTACKS[square].union((0, exports.rookAttacks)(square, occupied).intersect(occupied));
+exports.generalAttacks = generalAttacks;
+/**
  * Gets squares attacked or defended by a `piece` on `square`, given
  * `occupied` squares.
  */
@@ -290,6 +300,8 @@ const attacks = (piece, square, occupied) => {
             return (0, exports.rollingsnareAttacks)(square, occupied);
         case 'centaur':
             return (0, exports.centaurAttacks)(square, occupied);
+        case 'general':
+            return (0, exports.generalAttacks)(square, occupied);
     }
 };
 exports.attacks = attacks;

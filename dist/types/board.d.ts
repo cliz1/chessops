@@ -37,6 +37,7 @@ export declare class Board implements Iterable<[Square, Piece]>, ByRole<SquareSe
     royalpainter: SquareSet;
     rollingsnare: SquareSet;
     centaur: SquareSet;
+    general: SquareSet;
     private constructor();
     static default(): Board;
     /**
@@ -67,5 +68,10 @@ export declare class Board implements Iterable<[Square, Piece]>, ByRole<SquareSe
      * Finds the unique king of the given `color`, if any.
      */
     kingOf(color: Color): Square | undefined;
+    /**
+     * Finds the unique royal piece (king or general) of the given `color`,
+     * if any. A side has exactly one of the two.
+     */
+    royalOf(color: Color): Square | undefined;
 }
 export declare const boardEquals: (left: Board, right: Board) => boolean;

@@ -20,6 +20,7 @@ export class MaterialSide implements ByRole<number> {
   royalpainter: number;
   rollingsnare: number;
   centaur: number;
+  general: number;
 
   private constructor() {}
 
