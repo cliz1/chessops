@@ -36,6 +36,7 @@ export declare class Board implements Iterable<[Square, Piece]>, ByRole<SquareSe
     archer: SquareSet;
     royalpainter: SquareSet;
     rollingsnare: SquareSet;
+    centaur: SquareSet;
     private constructor();
     static default(): Board;
     /**

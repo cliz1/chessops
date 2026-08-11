@@ -4,7 +4,7 @@ export declare const RANK_NAMES: readonly ["1", "2", "3", "4", "5", "6", "7", "8
 export type RankName = (typeof RANK_NAMES)[number];
 export type Square = number;
 export type SquareName = `${FileName}${RankName}`;
-export declare const ROLE_CHARS: readonly ["q", "n", "r", "b", "p", "k", "c", "i", "a", "m", "y", "s", "w", "x", "o", "l"];
+export declare const ROLE_CHARS: readonly ["q", "n", "r", "b", "p", "k", "c", "i", "a", "m", "y", "s", "w", "x", "o", "l", "u"];
 export type LowerCaseRoleChar = (typeof ROLE_CHARS)[number];
 export type RoleChar = LowerCaseRoleChar | Uppercase<LowerCaseRoleChar>;
 /**
@@ -19,7 +19,7 @@ export type Color = (typeof COLORS)[number];
 export type ByColor<T> = {
     [color in Color]: T;
 };
-export declare const ROLES: readonly ["pawn", "knight", "bishop", "rook", "queen", "king", "champion", "princess", "amazon", "mann", "painter", "snare", "wizard", "archer", "royalpainter", "rollingsnare"];
+export declare const ROLES: readonly ["pawn", "knight", "bishop", "rook", "queen", "king", "champion", "princess", "amazon", "mann", "painter", "snare", "wizard", "archer", "royalpainter", "rollingsnare", "centaur"];
 export type Role = (typeof ROLES)[number];
 /**
  * Indexable by `pawn`, `knight`, `bishop`, `rook`, `queen`, and `king`.

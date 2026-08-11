@@ -18,6 +18,7 @@ export declare class MaterialSide implements ByRole<number> {
     archer: number;
     royalpainter: number;
     rollingsnare: number;
+    centaur: number;
     private constructor();
     static empty(): MaterialSide;
     static fromBoard(board: Board, color: Color): MaterialSide;

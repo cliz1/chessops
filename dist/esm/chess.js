@@ -1,5 +1,5 @@
 import { Result } from '@badrap/result';
-import { attacks, between, bishopAttacks, kingAttacks, knightAttacks, pawnAttacks, queenAttacks, ray, rookAttacks, championAttacks, princessAttacks, amazonAttacks, mannAttacks, painterAttacks, royalpainterAttacks, snareAttacks, wizardAttacks, archerAttacks, rollingsnareAttacks } from './attacks.js';
+import { attacks, between, bishopAttacks, kingAttacks, knightAttacks, pawnAttacks, queenAttacks, ray, rookAttacks, championAttacks, princessAttacks, amazonAttacks, mannAttacks, painterAttacks, royalpainterAttacks, snareAttacks, wizardAttacks, archerAttacks, rollingsnareAttacks, centaurAttacks } from './attacks.js';
 import { FILE_RANGE, RANK_RANGE, DIAG_RANGE, ANTI_DIAG_RANGE, ARCHER_DELTAS } from "./attacks.js";
 import { Board, boardEquals } from './board.js';
 import { SquareSet } from './squareSet.js';
@@ -28,7 +28,8 @@ const attacksTo = (square, attacker, board, occupied) => board[attacker].interse
     .union(painterAttacks(opposite(attacker), square).intersect(board.painter))
     .union(wizardAttacks(square).intersect(board.wizard))
     .union(archerAttacks(square, occupied).intersect(board.archer))
-    .union(royalpainterAttacks(square, occupied).intersect(board.royalpainter)));
+    .union(royalpainterAttacks(square, occupied).intersect(board.royalpainter))
+    .union(centaurAttacks(square, occupied).intersect(board.centaur)));
 export class Castles {
     constructor() { }
     static default() {
@@ -188,6 +189,7 @@ export class Position {
             .union(bishopLikeSliders.intersect(bishopLines))
             .intersect(this.board[opposite(this.turn)]);
         let archerSnipers = SquareSet.empty();
+        let centaurSnipers = SquareSet.empty();
         for (const d of ARCHER_DELTAS) {
             for (let step = 2; step <= 3; step++) {
                 const sq = king + d * step;
@@ -200,9 +202,13 @@ export class Position {
                 if (this.board[opposite(this.turn)].has(sq) && this.board.archer.has(sq)) {
                     archerSnipers = archerSnipers.with(sq);
                 }
+                // centaur's ranged shot is the same "sniper" geometry as the archer's
+                if (this.board[opposite(this.turn)].has(sq) && this.board.centaur.has(sq)) {
+                    centaurSnipers = centaurSnipers.with(sq);
+                }
             }
         }
-        const snipers = sliderSnipers.union(archerSnipers);
+        const snipers = sliderSnipers.union(archerSnipers).union(centaurSnipers);
         let blockers = SquareSet.empty();
         for (const sniper of snipers) {
             const b = between(king, sniper).intersect(this.board.occupied);
@@ -329,6 +335,9 @@ export class Position {
         else if (piece.role == 'archer') {
             pseudo = archerAttacks(square, this.board.occupied);
         }
+        else if (piece.role === 'centaur') {
+            pseudo = centaurAttacks(square, this.board.occupied);
+        }
         else
             pseudo = kingAttacks(square);
         if (piece.role !== 'wizard') {
@@ -372,7 +381,10 @@ export class Position {
                         role === 'princess' || // contains bishop-like sliding part
                         role === 'amazon' || // queen-like sliding part
                         role === 'royalpainter' || // treated as sliding elsewhere
-                        role === 'archer' // archer acted as a sniper in ctx()
+                        role === 'archer' || // archer acted as a sniper in ctx()
+                        role === 'centaur' // centaur's ranged shot acted as a sniper in ctx();
+                    // its knight-jump checks are naturally excluded below
+                    // since a knight offset never lies on ray(checker, king)
                     );
                     if (canBeBlocked) {
                         pseudo = pseudo.intersect(between(checker, ctx.king).with(checker));
@@ -419,6 +431,27 @@ export class Position {
                     }
                     pseudo = allowed;
                 }
+                else if (piece.role === 'centaur') {
+                    // centaur pin exception: the ranged shot doesn't move the piece, so it
+                    // stays legal regardless of pin direction (same exception as the archer);
+                    // the knight-jump part actually relocates the piece, so it's restricted
+                    // to the pin ray like any other piece (effectively never possible)
+                    let allowed = SquareSet.empty();
+                    for (const to of pseudo) {
+                        const fileDelta = Math.abs(squareFile(to) - squareFile(square));
+                        const rankDelta = Math.abs(squareRank(to) - squareRank(square));
+                        const maxDelta = Math.max(fileDelta, rankDelta);
+                        const isShot = maxDelta > 1 && fileDelta === rankDelta;
+                        if (isShot) {
+                            if (!ctx.blockers.has(to))
+                                allowed = allowed.with(to);
+                        }
+                        else if (ray(square, ctx.king).has(to)) {
+                            allowed = allowed.with(to);
+                        }
+                    }
+                    pseudo = allowed;
+                }
                 else {
                     pseudo = pseudo.intersect(ray(square, ctx.king));
                 }
@@ -435,6 +468,19 @@ export class Position {
             // Archer cannot shoot pieces that are blocking its own king from check (when not pinned)
             if (piece.role === 'archer' && !ctx.blockers.has(square) && ctx.blockers.nonEmpty()) {
                 pseudo = pseudo.diff(ctx.blockers);
+            }
+            // Centaur cannot shoot (ranged capture) pieces that are blocking its own king from
+            // check — unlike a normal knight-jump capture, the shot leaves the target square
+            // empty, so it could expose a discovered check. Knight-jump destinations are left
+            // alone since landing there keeps the square occupied.
+            if (piece.role === 'centaur' && !ctx.blockers.has(square) && ctx.blockers.nonEmpty()) {
+                for (const to of ctx.blockers) {
+                    const fileDelta = Math.abs(squareFile(to) - squareFile(square));
+                    const rankDelta = Math.abs(squareRank(to) - squareRank(square));
+                    const maxDelta = Math.max(fileDelta, rankDelta);
+                    if (maxDelta > 1 && fileDelta === rankDelta)
+                        pseudo = pseudo.without(to);
+                }
             }
         }
         if (legal)
@@ -461,7 +507,8 @@ export class Position {
             .union(this.board.amazon)
             .union(this.board.mann)
             .union(this.board.royalpainter)
-            .union(this.board.wizard);
+            .union(this.board.wizard)
+            .union(this.board.centaur);
         const nonMating = this.board.snare.union(this.board.archer).union(this.board.rollingsnare);
         // 1) If side has pawns, rooks/queens, painter (promotion-like), or any can-mate piece => sufficient
         if (side.intersect(pawns.union(rooksQueens).union(painter).union(canMate)).nonEmpty()) {
@@ -804,6 +851,25 @@ export class Position {
             if (maxDelta > 1 && fileDelta === rankDelta) {
                 const captured = this.board.take(to);
                 // put the archer back on its original square
+                this.board.set(from, piece);
+                this.halfmoves = 0;
+                if (captured)
+                    this.playCaptureAt(to, captured);
+                return;
+            }
+        }
+        // --- Centaur special-case: ranged "shot" that leaves centaur in place if diagonal 2-3 squares away ---
+        else if (piece.role === 'centaur') {
+            this.wetPaintSquare = undefined;
+            const from = move.from;
+            const to = move.to;
+            const fileDelta = Math.abs(squareFile(to) - squareFile(from));
+            const rankDelta = Math.abs(squareRank(to) - squareRank(from));
+            const maxDelta = Math.max(fileDelta, rankDelta);
+            // Ranged diagonal shot: centaur hits but stays; otherwise it's a normal knight move/capture
+            if (maxDelta > 1 && fileDelta === rankDelta) {
+                const captured = this.board.take(to);
+                // put the centaur back on its original square
                 this.board.set(from, piece);
                 this.halfmoves = 0;
                 if (captured)

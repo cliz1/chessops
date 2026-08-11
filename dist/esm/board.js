@@ -39,6 +39,7 @@ export class Board {
         this.archer = SquareSet.empty();
         this.royalpainter = SquareSet.empty();
         this.rollingsnare = SquareSet.empty();
+        this.centaur = SquareSet.empty();
     }
     static empty() {
         const board = new Board();

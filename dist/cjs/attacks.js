@@ -13,7 +13,7 @@
  * @packageDocumentation
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.between = exports.ray = exports.attacks = exports.archerAttacks = exports.wizardAttacks = exports.rollingsnareAttacks = exports.snareAttacks = exports.royalpainterAttacks = exports.painterAttacks = exports.mannAttacks = exports.amazonAttacks = exports.princessAttacks = exports.championAttacks = exports.queenAttacks = exports.rookAttacks = exports.bishopAttacks = exports.ANTI_DIAG_RANGE = exports.DIAG_RANGE = exports.RANK_RANGE = exports.FILE_RANGE = exports.pawnAttacks = exports.knightAttacks = exports.kingAttacks = exports.ARCHER_DELTAS = void 0;
+exports.between = exports.ray = exports.attacks = exports.centaurAttacks = exports.archerAttacks = exports.wizardAttacks = exports.rollingsnareAttacks = exports.snareAttacks = exports.royalpainterAttacks = exports.painterAttacks = exports.mannAttacks = exports.amazonAttacks = exports.princessAttacks = exports.championAttacks = exports.queenAttacks = exports.rookAttacks = exports.bishopAttacks = exports.ANTI_DIAG_RANGE = exports.DIAG_RANGE = exports.RANK_RANGE = exports.FILE_RANGE = exports.pawnAttacks = exports.knightAttacks = exports.kingAttacks = exports.ARCHER_DELTAS = void 0;
 const squareSet_js_1 = require("./squareSet.js");
 const util_js_1 = require("./util.js");
 const computeRange = (square, deltas) => {
@@ -208,6 +208,35 @@ const archerAttacks = (square, occupied) => {
 };
 exports.archerAttacks = archerAttacks;
 /**
+ * Gets squares attacked or defended by a centaur on `square`, given
+ * `occupied` squares. A centaur moves and captures like a knight, and
+ * additionally has the archer's ranged shot: it may capture (without
+ * moving) a piece 2-3 squares away on a diagonal, as long as the squares
+ * in between are empty. Unlike the archer, it has no adjacent-diagonal
+ * step.
+ */
+const centaurAttacks = (square, occupied) => {
+    let s = (0, exports.knightAttacks)(square);
+    for (const d of exports.ARCHER_DELTAS) {
+        for (let step = 2; step <= 3; step++) {
+            const to = square + d * step;
+            if (!(0 <= to && to < 64))
+                break;
+            // ensure file didn't wrap; for a diagonal move file delta must equal step
+            if (Math.abs((0, util_js_1.squareFile)(to) - (0, util_js_1.squareFile)(square)) !== step)
+                break;
+            if (occupied.has(to)) {
+                // add the blocker (friend or enemy) — centaur "shoots" it (can capture enemy)
+                s = s.with(to);
+                break; // can't shoot past this blocker
+            }
+            // if empty — do not add it, but continue to potentially reach the next square
+        }
+    }
+    return s;
+};
+exports.centaurAttacks = centaurAttacks;
+/**
  * Gets squares attacked or defended by a `piece` on `square`, given
  * `occupied` squares.
  */
@@ -245,6 +274,8 @@ const attacks = (piece, square, occupied) => {
             return (0, exports.royalpainterAttacks)(square, occupied);
         case 'rollingsnare':
             return (0, exports.rollingsnareAttacks)(square, occupied);
+        case 'centaur':
+            return (0, exports.centaurAttacks)(square, occupied);
     }
 };
 exports.attacks = attacks;

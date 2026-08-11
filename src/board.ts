@@ -39,6 +39,7 @@ export class Board implements Iterable<[Square, Piece]>, ByRole<SquareSet>, ByCo
   archer: SquareSet;
   royalpainter: SquareSet;
   rollingsnare: SquareSet;
+  centaur: SquareSet;
 
   private constructor() {}
 
@@ -72,6 +73,7 @@ export class Board implements Iterable<[Square, Piece]>, ByRole<SquareSet>, ByCo
     this.archer = SquareSet.empty();
     this.royalpainter = SquareSet.empty();
     this.rollingsnare = SquareSet.empty();
+    this.centaur = SquareSet.empty();
   }
 
   static empty(): Board {

@@ -67,6 +67,15 @@ export declare const wizardAttacks: (square: Square) => SquareSet;
 /** Gets squares attacked or defended by an archer on `square`. */
 export declare const archerAttacks: (square: Square, occupied: SquareSet) => SquareSet;
 /**
+ * Gets squares attacked or defended by a centaur on `square`, given
+ * `occupied` squares. A centaur moves and captures like a knight, and
+ * additionally has the archer's ranged shot: it may capture (without
+ * moving) a piece 2-3 squares away on a diagonal, as long as the squares
+ * in between are empty. Unlike the archer, it has no adjacent-diagonal
+ * step.
+ */
+export declare const centaurAttacks: (square: Square, occupied: SquareSet) => SquareSet;
+/**
  * Gets squares attacked or defended by a `piece` on `square`, given
  * `occupied` squares.
  */

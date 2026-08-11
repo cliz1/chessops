@@ -189,6 +189,34 @@ export const archerAttacks = (square, occupied) => {
     return s;
 };
 /**
+ * Gets squares attacked or defended by a centaur on `square`, given
+ * `occupied` squares. A centaur moves and captures like a knight, and
+ * additionally has the archer's ranged shot: it may capture (without
+ * moving) a piece 2-3 squares away on a diagonal, as long as the squares
+ * in between are empty. Unlike the archer, it has no adjacent-diagonal
+ * step.
+ */
+export const centaurAttacks = (square, occupied) => {
+    let s = knightAttacks(square);
+    for (const d of ARCHER_DELTAS) {
+        for (let step = 2; step <= 3; step++) {
+            const to = square + d * step;
+            if (!(0 <= to && to < 64))
+                break;
+            // ensure file didn't wrap; for a diagonal move file delta must equal step
+            if (Math.abs(squareFile(to) - squareFile(square)) !== step)
+                break;
+            if (occupied.has(to)) {
+                // add the blocker (friend or enemy) — centaur "shoots" it (can capture enemy)
+                s = s.with(to);
+                break; // can't shoot past this blocker
+            }
+            // if empty — do not add it, but continue to potentially reach the next square
+        }
+    }
+    return s;
+};
+/**
  * Gets squares attacked or defended by a `piece` on `square`, given
  * `occupied` squares.
  */
@@ -226,6 +254,8 @@ export const attacks = (piece, square, occupied) => {
             return royalpainterAttacks(square, occupied);
         case 'rollingsnare':
             return rollingsnareAttacks(square, occupied);
+        case 'centaur':
+            return centaurAttacks(square, occupied);
     }
 };
 /**

@@ -42,6 +42,7 @@ class Board {
         this.archer = squareSet_js_1.SquareSet.empty();
         this.royalpainter = squareSet_js_1.SquareSet.empty();
         this.rollingsnare = squareSet_js_1.SquareSet.empty();
+        this.centaur = squareSet_js_1.SquareSet.empty();
     }
     static empty() {
         const board = new Board();

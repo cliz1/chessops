@@ -48,6 +48,8 @@ const roleToChar = (role) => {
             return 'o';
         case 'rollingsnare':
             return 'l';
+        case 'centaur':
+            return 'u';
     }
 };
 exports.roleToChar = roleToChar;
@@ -85,6 +87,8 @@ function charToRole(ch) {
             return 'royalpainter';
         case 'l':
             return 'rollingsnare';
+        case 'u':
+            return 'centaur';
         default:
             return;
     }
