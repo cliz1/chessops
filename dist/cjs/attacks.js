@@ -218,6 +218,20 @@ exports.archerAttacks = archerAttacks;
 const centaurAttacks = (square, occupied) => {
     let s = (0, exports.knightAttacks)(square);
     for (const d of exports.ARCHER_DELTAS) {
+        // step 1: adjacent diagonal — the centaur does not attack this square, but a piece
+        // here still blocks the ranged shot from reaching steps 2-3, same as for the archer
+        const first = square + d;
+        if (0 <= first && first < 64 && Math.abs((0, util_js_1.squareFile)(first) - (0, util_js_1.squareFile)(square)) === 1) {
+            if (occupied.has(first)) {
+                // blocked at step 1 — nothing beyond
+                continue;
+            }
+        }
+        else {
+            // can't take step 1 in this direction (offboard/wrap) => skip direction
+            continue;
+        }
+        // steps 2..3: only add the first occupied square (if any), stop when we hit a blocker
         for (let step = 2; step <= 3; step++) {
             const to = square + d * step;
             if (!(0 <= to && to < 64))
