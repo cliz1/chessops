@@ -608,6 +608,9 @@ hasInsufficientMaterial(color: Color): boolean {
     return false;
   }
 
+  // 2a) Is there a general on the board => never insufficient material
+  if (!(this.board.general.isEmpty())) return false;
+
   // 2) Only the royal piece? => insufficient
   if (side.diff(royal).isEmpty()) return true;
 
