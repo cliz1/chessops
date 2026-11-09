@@ -681,6 +681,12 @@ isLegal(move: Move, ctx?: Context): boolean {
     // invalid promotion hints
     if (move.promotion === 'pawn') return false;
     if ((move.promotion === 'king' || move.promotion === 'general') && this.rules !== 'antichess') return false;
+    // only these roles can be promoted to
+    if (
+      move.promotion &&
+      !['queen', 'rook', 'bishop', 'knight', 'royalpainter', 'rollingsnare'].includes(move.promotion) &&
+      !(move.promotion === 'king' && this.rules === 'antichess')
+    ) return false;
 
     // Helper info about the from/to squares and board pieces
     const targetPiece = this.board.get(move.to); // Piece | undefined
