@@ -139,7 +139,7 @@ export class Castles {
     const castlers = setup.castlingRights.intersect(setup.board.rook.union(setup.board.champion));
     for (const color of COLORS) {
       const backrank = SquareSet.backrank(color);
-      const king = setup.board.kingOf(color);
+      const king = setup.board.royalOf(color);
       if (!defined(king) || !backrank.has(king)) continue;
       const side = castlers.intersect(setup.board[color]).intersect(backrank);
       const aSide = side.first();
@@ -428,17 +428,14 @@ ctx(): Context {
 
     if (defined(ctx.king)) {
       // King and general are both royal: neither may move to an attacked square.
-      // Only the king may castle.
+      // King and general may castle.
       if (piece.role === 'king' || piece.role === 'general') {
         const occ = this.board.occupied.without(square);
         for (const to of pseudo) {
           if (this.kingAttackers(to, opposite(this.turn), occ).nonEmpty())
             pseudo = pseudo.without(to);
         }
-        if (piece.role === 'king') {
-          return pseudo.union(castlingDest(this, 'a', ctx)).union(castlingDest(this, 'h', ctx));
-        }
-        return pseudo;
+        return pseudo.union(castlingDest(this, 'a', ctx)).union(castlingDest(this, 'h', ctx));
       }
 
       // In check
@@ -684,7 +681,7 @@ isLegal(move: Move, ctx?: Context): boolean {
     // only these roles can be promoted to
     if (
       move.promotion &&
-      !['queen', 'rook', 'bishop', 'knight', 'royalpainter', 'rollingsnare'].includes(move.promotion) &&
+      !['queen', 'rook', 'bishop', 'knight', 'royalpainter', 'rollingsnare', 'centaur'].includes(move.promotion) &&
       !(move.promotion === 'king' && this.rules === 'antichess')
     ) return false;
 
@@ -704,11 +701,20 @@ isLegal(move: Move, ctx?: Context): boolean {
     } else if (fromIsWizard && targetPiece && (targetPiece.role === 'pawn' || targetPiece.role === 'painter' || targetPiece.role === 'snare') && targetPiece.color === this.turn && ((targetPiece.color === 'white' && fromRank === 7) || (targetPiece.color === 'black' && fromRank === 0))) {
       willRequirePromotion = SquareSet.backranks().has(move.from);
       //willRequirePromotion = true;
+    } else if (this.board.archer.has(move.from)) {
+      // an archer stepping (not shooting) onto the far backrank must promote to a centaur
+      const fd = Math.abs(squareFile(move.to) - squareFile(move.from));
+      const rd = Math.abs(squareRank(move.to) - squareRank(move.from));
+      const isShot = Math.max(fd, rd) > 1 && fd === rd;
+      willRequirePromotion = !isShot && squareRank(move.to) === (this.turn === 'white' ? 7 : 0);
     } else {
       willRequirePromotion = false;
     }
 
-
+    // centaur is reachable only by archer promotion; archers can promote only to a centaur
+    const fromIsArcher = this.board.archer.has(move.from);
+    if (move.promotion === 'centaur' && !fromIsArcher) return false;
+    if (move.promotion && fromIsArcher && move.promotion !== 'centaur') return false;
 
     if (!!move.promotion !== willRequirePromotion) return false;
     const dests = this.dests(move.from, ctx);
@@ -888,7 +894,7 @@ play(move: Move): void {
     this.castles.discardRook(move.from);
   }
   // --- King: handle castling ---
-  else if (piece.role === 'king') {
+  else if (piece.role === 'king' || piece.role === 'general') {
     this.wetPaintSquare = undefined;
     if (castling) {
       const rookFrom = this.castles.rook[turn][castling];
@@ -1280,7 +1286,7 @@ export const castlingSide = (pos: Position, move: Move): CastlingSide | undefine
   if (isDrop(move)) return;
   const delta = move.to - move.from;
   if (Math.abs(delta) !== 2 && !pos.board[pos.turn].has(move.to)) return;
-  if (!pos.board.king.has(move.from)) return;
+  if (!pos.board.king.has(move.from) && !pos.board.general.has(move.from)) return;
   return delta > 0 ? 'h' : 'a';
 };
 
