@@ -994,6 +994,12 @@ play(move: Move): void {
       if (captured) this.playCaptureAt(to, captured);
       return;
     }
+
+    // stepping onto the far rank: promote to centaur (isLegal already requires promotion: 'centaur')
+    if (move.promotion) {
+      piece.role = move.promotion;
+      piece.promoted = !!this.pockets;
+    }
   }
   // --- Centaur special-case: ranged "shot" that leaves centaur in place if diagonal 2-3 squares away ---
   else if (piece.role === 'centaur') {
